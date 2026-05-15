@@ -2,32 +2,4285 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+/* ─── Floating UX 컴포넌트 (ScrollProgress / BackToTop / FormCTA / ScrollReveal) ─── */
+
+/* 우측 세로 스크롤 진행도 */
+.scroll-progress {
+  position: fixed;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  border-radius: 4px;
+  z-index: 50;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+.scroll-progress-bar {
+  width: 100%;
+  background: linear-gradient(180deg, #9ee17a 0%, #ffe989 100%);
+  border-radius: 4px;
+  /* height 변화에 transition 을 두면 스크롤보다 시각적으로 한 박자 늦게 따라옴.
+     매 프레임 inline style 로 즉시 반영하도록 transition 제거. */
+}
+
+@media (max-width: 767px) {
+  .scroll-progress {
+    display: none;
   }
+}
+
+/* 우측 하단 맨 위로 이동 버튼 */
+.back-to-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(158, 225, 122, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
+  color: #7fbf5f;
+  z-index: 40;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  pointer-events: none;
+}
+
+.back-to-top-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.back-to-top:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.back-to-top-arrow {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.back-to-top-text {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+@media (max-width: 767px) {
+  .back-to-top {
+    width: 48px;
+    height: 48px;
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+/* 신청폼 CTA — 하단 중앙 필 형태 */
+.form-cta {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  padding: 14px 24px;
+  background: rgba(158, 225, 122, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  color: #fff;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  z-index: 40;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    transform 0.2s ease;
+  pointer-events: none;
+}
+
+.form-cta-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.form-cta:hover {
+  transform: translateX(-50%) translateY(-2px);
+}
+
+@media (max-width: 767px) {
+  .form-cta {
+    bottom: 16px;
+    padding: 12px 20px;
+    font-size: 0.88rem;
+  }
+}
+
+/* 스크롤 진입 애니메이션 (fade-in + slide-up). 한 번 보이면 .is-visible 추가. */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 모션 줄이기 사용자 환경: 즉시 표시, transition 비활성화. */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .back-to-top,
+  .form-cta {
+    transition: opacity 0.01ms;
+  }
+}
+
+/* 프로젝트 전역에서 동일하게 쓰는 팔레트 변수입니다.
+   색을 변수화해두면 나중에 톤을 바꿀 때 한 곳만 수정하면 됩니다. */
+:root {
+  --text-main: #3a3a3a;
+  --soft-pink: #ffe7f1;
+  --soft-mint: #e6fed8;
+  --mint-point: #9ee17a;
+  --yellow-accent: #ffe989;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  margin: 0;
+  color: var(--text-main);
+  /* 페이지 전체에 핑크-블루-민트가 부드럽게 섞이는 방사형 배경을 적용해
+     단색보다 깊이감 있는 몽환적인 분위기를 만듭니다. */
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    #ffe7f1 0%,
+    #f0f7ff 40%,
+    #e6fed8 100%
+  );
+  font-family: var(--font-dm-sans), sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 텍스트 fallback 로고에도 기존 캐릭터성을 유지하기 위해
+   버블 그림자를 최소한으로 남겨 이미지 실패 상황의 시각 품질을 보호합니다. */
+.bubble-logo {
+  text-shadow:
+    0 1px 0 #fff,
+    0 2px 0 #fff,
+    0 5px 0 rgba(158, 225, 122, 0.5),
+    0 10px 15px rgba(58, 58, 58, 0.12);
+}
+
+/* 아래는 현재 페이지 전용 레이아웃 클래스입니다.
+   구조를 명확히 나누면 디자인 변경 시 섹션별 수정 범위를 빠르게 좁힐 수 있습니다. */
+.site-shell {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* 좌우 패널이 투명해졌기 때문에 루트 컨테이너에도 동일한 배경을 적용해
+     어떤 높이에서도 배경이 끊겨 보이지 않도록 맞춥니다. */
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    #ffe7f1 0%,
+    #f0f7ff 40%,
+    #e6fed8 100%
+  );
+}
+
+.top-bar {
+  /* 상단 바를 여유 있게 보이도록 높이를 크게(약 h-16) 확장합니다. */
+  height: 64px;
+  /* 상단 노란 라인을 제거해 화면 분절감을 줄이고
+     전체가 하나의 부드러운 캔버스처럼 보이도록 정리합니다. */
+  border-bottom: none;
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.top-bar-inner {
+  height: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  /* 언어 버튼을 상단 중앙에 배치해 좌우 시각 밸런스를 맞춥니다. */
+  justify-content: center;
+}
+
+.lang-menu {
+  position: relative;
+}
+
+.lang-trigger {
+  list-style: none;
+  cursor: pointer;
+  /* 버튼을 텍스트 링크처럼 보이게 하기 위해
+     border/background/shadow를 제거하고 텍스트 스타일만 남깁니다. */
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #888;
+  transition: color 0.2s ease;
+}
+
+.lang-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.lang-trigger:hover {
+  /* hover 시 색만 살짝 연해지게 하여 과한 인터랙션 없이 미세 피드백을 제공합니다. */
+  color: #aaa;
+}
+
+.lang-dropdown {
+  /* 부모 레이아웃 영향에서 완전히 분리하기 위해 fixed를 사용합니다. */
+  position: fixed;
+  /* 뷰포트 중앙축 기준으로 드롭다운을 배치합니다. */
+  left: 50%;
+  /* 상단 바(64px) 바로 아래에 자연스럽게 나타나도록 top을 고정합니다. */
+  top: 56px;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: 88px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  /* 요청사항에 맞춰 드롭다운 경계선을 제거하고,
+     흰 배경 + 약한 그림자만으로 가벼운 레이어감을 만듭니다. */
+  border: none;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 6px 14px rgba(58, 58, 58, 0.08);
+}
+
+.lang-dropdown li {
+  border-radius: 10px;
+  text-align: center;
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+.lang-dropdown li:hover {
+  background: var(--soft-mint);
+}
+
+.main-split {
+  /* 상단 바 높이 증가(64px)에 맞춰 메인 영역 계산식을 함께 수정합니다. */
+  height: calc(100vh - 64px - 120px);
+  display: flex;
+  /* 메인 영역 상하에 여백을 주어 화면이 꽉 차 보이는 답답함을 줄이고
+     전체 레이아웃 호흡을 넓혀줍니다. */
+  padding: 3.5rem 0;
+  align-items: center;
+  /* 패널 배경을 투명화했기 때문에 메인 영역 자체도 투명 상태를 유지합니다. */
+  background: transparent;
+}
+
+.left-panel {
+  width: 38%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 요청사항에 맞춰 좌측 패널 배경을 제거해
+     전체 방사형 배경이 그대로 비치도록 설정합니다. */
+  background: transparent;
+  padding: 0 28px;
+}
+
+.left-content {
+  /* width: 100% 을 제거해 .left-content 가 자식 콘텐츠 너비로 shrink 됩니다.
+     부모 .left-panel 의 justify-content: center 가 그 결과 콘텐츠 블록을
+     "페이지 왼쪽 끝 ~ 배너 왼쪽 끝" 구간의 정중앙으로 자동 정렬합니다. */
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  /* 내부 요소들은 같은 왼쪽 기준선을 유지 — 블록 자체가 가운데로 가더라도
+     로고/네비/SNS 라인의 좌측 시작점은 일정합니다. */
+  align-items: flex-start;
+  gap: 28px;
+  text-align: left;
+  /* 요청사항에 맞춰 좌측 카드 래퍼를 제거하고
+     로고/네비/SNS가 배경 위에 직접 놓이는 단순 세로 레이아웃으로 전환합니다. */
+  padding: 8px 6px;
+}
+
+.logo-image {
+  /* clamp(min, preferred, max). 작은 화면 ~ 매우 큰 화면 모두 부드럽게 비례 성장.
+     1024→164(=160), 1280→179, 1440→202, 1920→269, 2560→320(cap).
+     아래 미디어쿼리에서 별도 width override 를 두지 않아 clamp 가 모든 구간을 담당. */
+  width: clamp(160px, 14vw, 320px);
+  height: auto;
+  object-fit: contain;
+}
+
+.logo-fallback {
+  /* fallback 텍스트는 이미지 실패 시에만 보이므로
+     로고 존재감을 유지할 수 있도록 굵기를 유지하되 크기는 과하지 않게 조정합니다. */
+  font-size: 64px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.left-nav {
+  display: flex;
+  align-items: center;
+  /* 가로 메뉴가 부모 내부에서 중앙으로 밀리지 않고,
+     연락처 블록과 동일한 왼쪽 시작점에 고정되도록 시작 정렬을 명시합니다. */
+  justify-content: flex-start;
+  gap: 16px;
+  /* 로고와 같은 곡선으로 함께 성장하되 큰 화면에서 차분한 톤 유지.
+     1024→17, 1440→17.3(1.2vw), 1920→22(cap). */
+  font-size: clamp(17px, 1.2vw, 22px);
+  /* 기본 상태를 요청값에 맞춰 normal(400)로 고정해
+     메뉴가 강조되지 않은 중립 상태로 보이게 설정합니다. */
+  font-weight: 400;
+  color: #3a3a3a;
+}
+
+.left-nav a {
+  /* pill UI를 완전히 제거하고 텍스트 링크 자체만 남기기 위해
+     배경/보더/라운드 없이 색상 전환만 적용합니다. */
+  color: #3a3a3a;
+  font-weight: 400;
+  transition: color 0.2s ease;
+}
+
+.left-nav a:hover,
+.left-nav a:active {
+  /* hover/active 상태에서도 글자 두께는 유지하고
+     색상만 mint 포인트(#9EE17A)로 변경합니다. */
+  color: #9ee17a;
+  font-weight: 400;
+}
+
+.left-contact {
+  display: flex;
+  flex-direction: column;
+  /* 연락처 각 줄도 같은 왼쪽 축에서 시작하도록 start 정렬을 명시해,
+     네비 메뉴와 기준선이 어긋나는 상황을 예방합니다. */
+  align-items: flex-start;
+  gap: 6px;
+  /* 메뉴와 비슷한 톤으로 함께 성장 — 1024→13, 1440→13(0.85vw=12.24,min), 1920→15(cap). */
+  font-size: clamp(13px, 0.85vw, 15px);
+  line-height: 1.3;
+  color: #777;
+}
+
+.left-contact p {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.right-panel {
+  width: 62%;
+  position: static;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 오른쪽 영역은 세로 높이를 제한해
+     "가로로 길고 세로는 낮은" 배너 비율감을 만들고 여백을 확보합니다. */
+  max-height: 60vh;
+  /* 2:1 가로형 배너 비율(2560×1280). 배너 사이즈 가이드와 일치. */
+  aspect-ratio: 2 / 1;
+  padding: 0;
+  /* 카드/테두리 없이 배경만 보이도록 완전 투명 상태를 유지합니다. */
+  background: transparent;
+}
+
+/* 배너 frame: 둥근 모서리 + 약한 그림자, 이미지 자르지 않게 cover */
+.banner-frame {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(58, 58, 58, 0.08);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bottom-bar {
+  height: 120px;
+  /* 하단 노란 라인도 제거해 상단과 동일하게 미니멀 톤을 유지합니다. */
+  border-top: none;
+  /* 하단 바는 시각적 무게를 낮추기 위해 거의 투명에 가까운 배경만 남깁니다. */
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.bottom-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.bottom-title {
+  margin: 0;
+  /* 하단 타이틀은 serif/italic을 제거하고 요청값대로
+     산세리프 + 얇은 웨이트로 정리해 미니멀한 분위기를 맞춥니다. */
+  font-family: var(--font-dm-sans), sans-serif;
+  font-style: normal;
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  font-weight: 300;
+  color: #aaa;
+}
+
+.bottom-desc {
+  margin: 10px 0 0;
+  /* 보조 문구는 더 작은 크기/연한 색으로 계층을 분리합니다. */
+  font-family: var(--font-dm-sans), sans-serif;
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 300;
+  color: #bbb;
+}
+
+/* 반응형: 글자/로고는 base 의 clamp() 가 자동 처리.
+   여기서는 clamp 로 풀 수 없는 panel 크기/하단 라벨 정도만 단계 조정. */
+@media (max-width: 1280px) {
+  .bottom-title {
+    font-size: 0.76rem;
   }
+}
+
+@media (max-width: 1024px) {
+  .left-panel {
+    width: 40%;
+    padding: 0 18px;
+  }
+
+  .right-panel {
+    width: 60%;
+    /* 작은 화면에서는 세로 높이만 약간 더 허용해 콘텐츠 영역이 너무 얇아지지 않게.
+       aspect-ratio 는 base(2/1) 그대로 사용 — 별도 override 제거. */
+    max-height: 56vh;
+    padding: 0;
+  }
+
+  .bottom-title {
+    font-size: 0.72rem;
+  }
+
+  .bottom-desc {
+    font-size: 0.66rem;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Notice 페이지 전용 스타일
+   - 메인 페이지와 동일한 방사형 그라디언트를 유지하되,
+     이 페이지는 콘텐츠가 길어질 수 있으므로 세로 스크롤을 허용합니다.
+   ───────────────────────────────────────────────────────────── */
+.notice-shell {
+  min-height: 100vh;
+  /* 메인 페이지(.site-shell)와 동일한 톤을 유지해 페이지 전환 시 위화감을 줄입니다. */
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    #ffe7f1 0%,
+    #f0f7ff 40%,
+    #e6fed8 100%
+  );
+  padding: 32px 24px 80px;
+}
+
+.notice-container {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.notice-topbar {
+  display: flex;
+  align-items: center;
+  /* 메인으로 버튼은 좌측 상단에 단독 배치합니다. */
+  justify-content: flex-start;
+}
+
+.notice-back {
+  display: inline-flex;
+  align-items: center;
+  /* 텍스트만 노출하는 미니멀 백 버튼.
+     색상 #888 → hover시 mint 포인트(#9EE17A)로 자연스럽게 전환합니다. */
+  color: #888;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  transition: color 0.2s ease;
+}
+
+.notice-back:hover {
+  color: var(--mint-point);
+}
+
+.notice-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+
+.notice-hero-title {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.notice-hero-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #888;
+}
+
+.notice-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notice-section-title {
+  margin: 0;
+  /* text-2xl 수준의 타이틀.
+     섹션 카드 위에 살짝 띄워 카드와 시각적 계층을 분리합니다. */
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--text-main);
+  padding-left: 4px;
+}
+
+.notice-card {
+  /* 흰색 반투명 + 약한 shadow + 둥근 모서리. 메인 페이지의 유리 질감과 톤을 맞춥니다. */
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  padding: 28px 32px;
+  box-shadow: 0 6px 24px rgba(58, 58, 58, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.notice-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #aaa;
+  text-align: center;
+  padding: 18px 0;
+}
+
+/* notices 의 리치 텍스트 (HTML) 렌더 영역. 자식 p/ul/h1 등 prose 스타일. */
+.notice-rich {
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: #555;
+  word-break: break-word;
+}
+
+.notice-rich > p {
+  margin: 0 0 0.8em;
+}
+
+.notice-rich > p:last-child {
+  margin-bottom: 0;
+}
+
+.notice-rich > h1,
+.notice-rich > h2,
+.notice-rich > h3 {
+  margin: 1em 0 0.5em;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.notice-rich > h1 { font-size: 1.4rem; }
+.notice-rich > h2 { font-size: 1.2rem; }
+.notice-rich > h3 { font-size: 1.05rem; }
+
+/* 번호 리스트 — counter 로 01, 02, 03 형식 mint 번호 표시.
+   tiptap 에서 <ol> 로 작성하면 자동 적용. */
+.notice-rich ol {
+  list-style: none;
+  counter-reset: notice-list;
+  padding-left: 0;
+  margin: 0 0 0.8em;
+}
+
+.notice-rich ol > li {
+  counter-increment: notice-list;
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 14px;
+  line-height: 1.7;
+}
+
+.notice-rich ol > li:last-child {
+  margin-bottom: 0;
+}
+
+.notice-rich ol > li::before {
+  content: counter(notice-list, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--mint-point);
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  /* 번호 자체에는 line-height 가 본문과 같도록 맞춰 베이스라인 정렬. */
+  line-height: 1.7;
+}
+
+/* 불릿 리스트 — mint 점으로 통일감 유지. */
+.notice-rich ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 0.8em;
+}
+
+.notice-rich ul > li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+
+.notice-rich ul > li:last-child {
+  margin-bottom: 0;
+}
+
+.notice-rich ul > li::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 0.7em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mint-point);
+}
+
+.notice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.notice-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.notice-item-num {
+  /* 번호(01, 02…) 는 mint 포인트 색으로 살짝 강조해 시선 흐름을 만들어줍니다. */
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mint-point);
+  letter-spacing: 0.05em;
+  min-width: 28px;
+  padding-top: 2px;
+}
+
+.notice-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.notice-item-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.notice-item-content {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: #555;
+  white-space: pre-line;
+}
+
+/* 저작권 범위 표 */
+.notice-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.notice-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
+}
+
+.notice-table thead th {
+  /* 헤더는 살짝 핑크 톤(soft-pink)을 깔아 표 첫 줄과 본문을 분리합니다. */
+  background: rgba(255, 231, 241, 0.6);
+  color: var(--text-main);
+  font-weight: 500;
+  padding: 12px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(58, 58, 58, 0.06);
+}
+
+.notice-table tbody th {
+  /* 행 헤더(방송용 / 상업용)는 좌측에 고정. */
+  background: rgba(230, 254, 216, 0.5);
+  color: var(--text-main);
+  font-weight: 500;
+  padding: 14px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(58, 58, 58, 0.04);
+  width: 88px;
+}
+
+.notice-table tbody td {
+  padding: 14px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(58, 58, 58, 0.04);
+}
+
+.notice-table tbody tr:last-child th,
+.notice-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.notice-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.notice-mark-o {
+  background: var(--mint-point);
+  color: #fff;
+}
+
+.notice-mark-x {
+  background: rgba(58, 58, 58, 0.08);
+  color: #999;
+}
+
+@media (max-width: 720px) {
+  .notice-shell {
+    padding: 24px 16px 60px;
+  }
+
+  .notice-card {
+    padding: 22px 20px;
+    border-radius: 14px;
+  }
+
+  .notice-hero-title {
+    font-size: 1.85rem;
+  }
+
+  .notice-section-title {
+    font-size: 1.25rem;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Live2D 페이지 전용 스타일
+   톤(배경/카드/뒤로가기 버튼)은 Notice 페이지와 동일한 디자인 언어를
+   따르지만, 페이지 단위로 클래스를 분리해 변경 영향 범위를 좁혔습니다.
+   ───────────────────────────────────────────────────────────── */
+.l2d-shell {
+  min-height: 100vh;
+  background: radial-gradient(
+    ellipse at 30% 50%,
+    #ffe7f1 0%,
+    #f0f7ff 40%,
+    #e6fed8 100%
+  );
+  padding: 32px 24px 80px;
+}
+
+.l2d-container {
+  /* 가격표/카드를 2열로 배치하기 위해 Notice(880)보다 살짝 넓은 1080px 사용. */
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.l2d-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.l2d-back {
+  display: inline-flex;
+  align-items: center;
+  color: #888;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  transition: color 0.2s ease;
+}
+
+.l2d-back:hover {
+  color: var(--mint-point);
+}
+
+.l2d-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+
+.l2d-hero-title {
+  margin: 0;
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.l2d-hero-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.l2d-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.l2d-section-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--text-main);
+  padding-left: 4px;
+}
+
+.l2d-card {
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  padding: 28px 32px;
+  box-shadow: 0 6px 24px rgba(58, 58, 58, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.l2d-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* Timeline (작업 과정) */
+.l2d-timeline {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.l2d-timeline::before {
+  /* 노드 동그라미들의 중심선을 잇는 세로선.
+     left = 노드 width(38px) / 2 - line width(2px) / 2 = 18px (+ step padding 8px = 26) */
+  content: "";
+  position: absolute;
+  left: 27px;
+  top: 26px;
+  bottom: 26px;
+  width: 2px;
+  background: rgba(158, 225, 122, 0.35);
+  z-index: 0;
+}
+
+.l2d-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* 단계 헤더(번호 + 제목) — 한 줄. */
+.l2d-step-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.l2d-step-num {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--mint-point);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  /* 노드 외곽에 카드 배경색과 동일한 흰 링을 둘러,
+     노드와 노드 사이의 세로선이 원을 관통하는 것처럼 보이지 않게 합니다. */
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.72);
+}
+
+.l2d-step-text {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+/* hover / 탭 시 활성 단계 강조 — 기존 .l2d-step-final 효과를 동적으로 적용. */
+.l2d-step:hover,
+.l2d-step-active {
+  background: var(--soft-mint);
+}
+
+.l2d-step:hover .l2d-step-text,
+.l2d-step-active .l2d-step-text {
+  font-weight: 500;
+}
+
+/* 단계 상세 설명 — 평소 max-height 0, hover/active 시 펼쳐짐. */
+.l2d-step-description {
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 0 0 56px;
+  transition:
+    max-height 0.3s ease,
+    padding 0.3s ease,
+    margin 0.3s ease;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #555;
+  word-break: break-word;
+}
+
+.l2d-step:hover .l2d-step-description,
+.l2d-step-active .l2d-step-description {
+  /* 충분히 큰 max-height — auto 트랜지션은 안 되니 큰 값 사용. */
+  max-height: 600px;
+  padding: 8px 0 4px 56px;
+  margin-top: 4px;
+}
+
+.l2d-step-description p {
+  margin: 0 0 0.5em;
+}
+.l2d-step-description p:last-child {
+  margin-bottom: 0;
+}
+.l2d-step-description ul,
+.l2d-step-description ol {
+  margin: 0 0 0.5em;
+  padding-left: 1.4em;
+}
+.l2d-step-description ul { list-style: disc; }
+.l2d-step-description ol { list-style: decimal; }
+.l2d-step-description li {
+  margin: 0.2em 0;
+}
+
+.l2d-timeline-empty {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.l2d-timeline-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #aaa;
+  padding-left: 4px;
+}
+
+/* Type cards (작업 타입 안내) */
+.l2d-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.l2d-type-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-main);
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(58, 58, 58, 0.06);
+}
+
+.l2d-type-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.l2d-type-item {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.l2d-type-label {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: var(--mint-point);
+  /* 라벨/불릿 칼럼 너비를 고정해 모든 항목의 value 시작점이 일정합니다. */
+  min-width: 84px;
+}
+
+.l2d-type-value {
+  color: #555;
+  flex: 1;
+}
+
+/* (live2d_types.description rich text 스키마는 폐기되어 .l2d-type-description CSS 도 제거.
+   타입 카드의 본문은 다시 .l2d-type-list 의 label/value 그리드 구조 사용.) */
+
+/* Pricing — 카드 형식 */
+.l2d-pricecard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.l2d-pricecard-accent {
+  /* 두 번째 카드(리깅) 강조: yellow-accent 보더 + 약간 더 또렷한 배경. */
+  border: 2px solid var(--yellow-accent);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.l2d-pricecard-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.l2d-pricecard-amount {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  /* 메인 가격은 soft-pink(#FFE7F1) 보다 진한 핑크(#FF8FB1)로 강조해
+     기존 mint 포인트와 차별화된 시각 무게감을 줍니다. */
+  color: #ff8fb1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Illust 카드 — 다중 기본가 변형.
+   Live2D 카드는 메인 가격 1개라 큰 단일 amount 를 쓰지만,
+   Illust 는 흉상/반신/전신처럼 옵션이 여러 개라 각 줄 단위로 라벨/가격을 정렬합니다. */
+.l2d-pricecard-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(58, 58, 58, 0.06);
+}
+
+.l2d-pricecard-bases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* 카드 자체가 flex column 이고 grid stretch 로 두 카드 높이가 일치하므로,
+     기본가 행이 적은 카드(예: 상업용 2행) 의 남는 세로 공간을 bases 가 흡수합니다.
+     결과적으로 두 카드의 divider / addons 시작 y 좌표가 자동 정렬됩니다. */
+  flex-grow: 1;
+}
+
+.l2d-pricecard-base-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.l2d-pricecard-base-label {
+  font-size: 0.92rem;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+/* Live2D 공통 추가금 카드 — 메인 카드 grid(2열) 아래 단독으로 배치되는 카드 */
+.l2d-pricecard-addons {
+  margin-top: 16px;
+}
+
+.l2d-pricecard-base-amount {
+  /* 메인 가격이 여러 개라 단일 amount(2rem) 보다는 살짝 작게(1.35rem) 잡아
+     카드 안에서 시각 밀도가 너무 높아지지 않도록 합니다. 색상은 동일한 핑크 톤. */
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ff8fb1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.l2d-pricecard-base {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #888;
+}
+
+.l2d-pricecard-divider {
+  border: none;
+  height: 1px;
+  background: rgba(58, 58, 58, 0.08);
+  margin: 0;
+}
+
+.l2d-pricecard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.l2d-pricecard-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.88rem;
+}
+
+.l2d-pricecard-label {
+  color: #555;
+}
+
+.l2d-pricecard-add {
+  font-weight: 600;
+  /* 메인 가격(.l2d-pricecard-amount) 과 톤을 통일해 가격 정보 계층을 한 색상으로 묶습니다. */
+  color: #ff8fb1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 샘플 CTA 줄 — 좌측 샘플 버튼 / 우측 슬롯 그룹 */
+.l2d-sample-cta {
+  display: flex;
+  /* 양 끝 정렬: 좌측 = 샘플 버튼, 우측 = 슬롯 그룹. */
+  justify-content: space-between;
+  align-items: center;
+  /* 좁은 화면에서 두 그룹이 줄바꿈되도록. */
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: -16px;
+}
+
+.l2d-sample-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* 슬롯 카드(64px)와 높이를 맞춰 한 줄에 시각적 라인이 정렬되도록 합니다. */
+  padding: 18px 28px;
+  /* 슬롯 카드(border-radius:12px)와 동일한 코너 반경으로 통일. */
+  border-radius: 12px;
+  border: 1.5px solid var(--yellow-accent);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-main);
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* hover 시 yellow-accent 로 채워지면서 살짝 글로우. */
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.l2d-sample-btn:hover {
+  background: var(--yellow-accent);
+  box-shadow: 0 0 0 4px rgba(255, 233, 137, 0.35);
+}
+
+/* 슬롯 그룹 — 라벨 + 카운트 뱃지 + 슬롯 5개 (샘플 CTA 줄 우측에 배치) */
+.l2d-slot-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.l2d-slot-headline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.l2d-slot-label {
+  font-size: 0.85rem;
+  color: #888;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.l2d-slot-badge {
+  /* 남은 슬롯 개수를 뱃지로 표시. mint 톤으로 라벨과 대비를 만듭니다. */
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid rgba(158, 225, 122, 0.3);
+  color: var(--mint-point);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.l2d-slot-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.l2d-slot {
+  /* 사각 카드 형태(64x64). 둥근 모서리로 카드 톤과 통일. */
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+  cursor: default;
+}
+
+.l2d-slot:hover {
+  transform: translateY(-1px);
+}
+
+.l2d-slot-filled {
+  /* 닫힘: 연한 회색 배경 + 회색 텍스트. 보더 없음. */
+  background: #f0f0f0;
+  color: #999;
+  border: none;
+}
+
+.l2d-slot-empty {
+  /* 모집중: 흰색 반투명 배경 + mint 보더 + mint 텍스트. */
+  background: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid var(--mint-point);
+  color: var(--mint-point);
+}
+
+.l2d-slot-empty:hover {
+  background: #fff;
+}
+
+/* 신청서 작성 placeholder (마감 메시지 등 폼이 아닌 카드 상태) */
+.l2d-form-placeholder {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.92rem;
+  padding: 48px 32px;
+}
+
+.l2d-form-placeholder p {
+  margin: 0;
+}
+
+/* ─── 신청 폼 ─── */
+.l2d-form {
+  /* 폼 자체가 카드 역할을 겸합니다. .l2d-card 의 시각 속성을 그대로 가져갑니다. */
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+  padding: 32px;
+  box-shadow: 0 6px 24px rgba(58, 58, 58, 0.06);
+  backdrop-filter: blur(8px);
+}
+
+.l2d-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 가로 2열 그리드(닉네임+연락처, 비공개 옵션 두 개 등). 모바일에선 스택.
+   align-items:start 로 두 컬럼 높이가 달라도 위쪽 기준선을 맞춥니다. */
+.l2d-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* 짧은 입력칸(수령 희망 날짜 등) 너비 제한. */
+.l2d-form-input-narrow {
+  max-width: 280px;
+}
+
+.l2d-form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.l2d-form-req {
+  /* 필수 표시(*) 색상. 가격 강조 핑크와 톤 통일. */
+  color: #ff8fb1;
+  margin-left: 2px;
+}
+
+.l2d-form-optional {
+  color: #aaa;
+  font-size: 0.78rem;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.l2d-form-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #888;
+  line-height: 1.45;
+}
+
+.l2d-form-input,
+.l2d-form-textarea {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.l2d-form-textarea {
+  resize: vertical;
+  line-height: 1.6;
+  min-height: 96px;
+}
+
+.l2d-form-input:focus,
+.l2d-form-textarea:focus {
+  outline: none;
+  border-color: var(--mint-point);
+  box-shadow: 0 0 0 3px rgba(158, 225, 122, 0.18);
+}
+
+.l2d-form-input-err,
+.l2d-form-input-err:focus {
+  border-color: #ff8fb1;
+  box-shadow: 0 0 0 3px rgba(255, 143, 177, 0.15);
+}
+
+.l2d-form-msg {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: #ff8fb1;
+}
+
+.l2d-form-msg-top {
+  margin: 0;
+  text-align: right;
+}
+
+/* 커스텀 라디오 (pill 형태) */
+.l2d-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.l2d-radio {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.l2d-radio input {
+  /* 기본 라디오는 시각적으로 숨기되 접근성을 위해 DOM 에는 유지(visually-hidden 패턴). */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.l2d-radio:hover {
+  border-color: var(--mint-point);
+}
+
+.l2d-radio-active {
+  background: var(--soft-mint);
+  border-color: var(--mint-point);
+  color: var(--text-main);
+}
+
+/* 이미지 첨부 — 신청 캐릭터 textarea 아래 */
+.l2d-form-image-attach {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.l2d-form-image-btn {
+  /* 작은 outline 버튼. label 자체를 버튼처럼 스타일링하고 input[type=file] 은 숨김. */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  align-self: flex-start;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.l2d-form-image-btn:hover {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+}
+
+.l2d-form-image-btn input {
+  display: none;
+}
+
+.l2d-form-image-btn-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.l2d-form-image-btn-disabled:hover {
+  border-color: #e0e0e0;
+  color: #555;
+}
+
+.l2d-form-image-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.l2d-form-image-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.l2d-form-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.l2d-form-image-remove {
+  /* 우상단 X 버튼. 어둡고 작게 — 썸네일 자체의 시각 무게를 가리지 않도록. */
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(58, 58, 58, 0.7);
+  color: #fff;
+  border: none;
+  font-size: 0.7rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.l2d-form-image-remove:hover {
+  background: rgba(58, 58, 58, 0.9);
+}
+
+/* 제출 버튼 */
+.l2d-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.l2d-form-submit {
+  padding: 14px 32px;
+  background: var(--mint-point);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    opacity 0.15s ease;
+}
+
+.l2d-form-submit:hover:not(:disabled) {
+  background: #88d061;
+}
+
+.l2d-form-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.l2d-form-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ─── Complete (완료) 페이지 ─── */
+.l2d-complete-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  padding: 24px 0 8px;
+}
+
+.l2d-complete-check {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--mint-point);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 체크 아이콘 둘레에 부드러운 mint 글로우. */
+  box-shadow: 0 0 0 8px rgba(158, 225, 122, 0.18);
+}
+
+.l2d-complete-title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.l2d-complete-sub {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #888;
+}
+
+.l2d-summary-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.l2d-summary-title {
+  margin: 0 0 18px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.l2d-summary {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.l2d-summary-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.l2d-summary-row dt {
+  font-size: 0.82rem;
+  color: #999;
+  font-weight: 400;
+}
+
+.l2d-summary-row dd {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  line-height: 1.55;
+  /* 사용자가 입력한 줄바꿈을 그대로 보존(서술형 필드 가독성). */
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.l2d-summary-row-block {
+  /* 서술형 필드는 라벨 위, 본문 아래 형태로 풀어 가독성 확보. */
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+/* 완료 페이지 첨부 이미지 썸네일 */
+.l2d-summary-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.l2d-summary-image {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #f0f0f0;
+  display: block;
+}
+
+.l2d-complete-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.l2d-back-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 14px 28px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1.5px solid var(--yellow-accent);
+  border-radius: 12px;
+  color: var(--text-main);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.l2d-back-btn:hover {
+  background: var(--yellow-accent);
+  box-shadow: 0 0 0 4px rgba(255, 233, 137, 0.35);
+}
+
+@media (max-width: 720px) {
+  .l2d-form {
+    padding: 22px 20px;
+    border-radius: 14px;
+  }
+
+  .l2d-form-row {
+    /* 모바일에선 가로 2열 그리드도 세로 스택으로 전환. */
+    grid-template-columns: 1fr;
+  }
+
+  .l2d-summary-row {
+    /* 좁은 화면에서는 라벨/값을 위아래로 풀어 한 줄 가독성 확보. */
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .l2d-complete-title {
+    font-size: 1.4rem;
+  }
+}
+
+/* 샘플 페이지 */
+.l2d-sample-hero {
+  /* 샘플 페이지는 히어로가 단일 타이틀이라 메인 컬럼 폭에서 가운데 정렬. */
+  align-items: center;
+  text-align: center;
+}
+
+.l2d-sample-empty {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.95rem;
+  padding: 64px 32px;
+}
+
+.l2d-sample-empty p {
+  margin: 0;
+}
+
+/* ─── 샘플 페이지 렌더러 (사용자 페이지 + 어드민 미리보기 공통) ─── */
+.sample-page {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 8px 0 24px;
+}
+
+.sample-empty {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.95rem;
+  padding: 80px 16px;
+  margin: 0;
+}
+
+.sample-text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.85;
+  color: var(--text-main);
+  word-break: break-word;
+  padding: 0 8px;
+}
+
+/* tiptap 출력의 자식 요소들 (p / h1 / h2) 자연스러운 prose 스타일 */
+.sample-text > p,
+.sample-text > h1,
+.sample-text > h2 {
+  margin: 0 0 0.6em;
+}
+
+.sample-text > p:last-child,
+.sample-text > h1:last-child,
+.sample-text > h2:last-child {
+  margin-bottom: 0;
+}
+
+.sample-text h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sample-text h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+/* bold/italic/underline 마크는 인라인 — 별도 정의 없이 브라우저 기본 사용. */
+
+.sample-youtube {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 4px 16px rgba(58, 58, 58, 0.08);
+}
+
+.sample-youtube iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.sample-image-row {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  /* 둥근 모서리는 각 셀에서 처리해 셀 간 gap 공간이 페이지 배경 그대로 보이도록 함. */
+}
+
+.sample-image-cell {
+  flex-shrink: 1;
+  min-width: 60px;
+  /* 투명 PNG 의 투명 영역이 페이지 배경 그대로 보이도록 셀 배경 제거. */
+  background: transparent;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sample-image-cell img {
+  width: 100%;
+  height: 100%;
+  /* contain: 비율 유지 + 투명 영역 그대로 노출. cover 처럼 잘리지 않음. */
+  object-fit: contain;
+  display: block;
+}
+
+.sample-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 8px 0;
+}
+
+@media (max-width: 720px) {
+  .sample-page {
+    gap: 28px;
+    padding: 4px 0 16px;
+  }
+  .sample-text {
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .sample-image-row {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 880px) {
+  .l2d-grid-2 {
+    /* 좁은 화면에서는 두 카드를 세로 스택으로 전환. */
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .l2d-shell {
+    padding: 24px 16px 60px;
+  }
+
+  .l2d-card {
+    padding: 22px 20px;
+    border-radius: 14px;
+  }
+
+  .l2d-hero-title {
+    font-size: 1.85rem;
+  }
+
+  .l2d-section-title {
+    font-size: 1.25rem;
+  }
+
+  .l2d-pricecard-amount {
+    font-size: 1.7rem;
+  }
+
+  .l2d-step-text {
+    font-size: 0.92rem;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   어드민
+   - 진입 버튼 / 로그인 모달 / 대시보드 사이드바 + 메인
+   - 톤은 메인 사이트와 분리해 흰색 베이스 + 연한 그라디언트로 단정하게.
+   ───────────────────────────────────────────────────────────── */
+
+/* 메인 페이지 우측 하단 어드민 진입 버튼 */
+.admin-entry-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 6px 10px;
+  z-index: 30;
+  transition: color 0.2s ease;
+}
+
+.admin-entry-btn:hover {
+  color: #888;
+}
+
+/* 로그인 모달 */
+.admin-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.admin-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.admin-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #999;
+  font-size: 1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.admin-modal-close:hover {
+  background: #f5f5f5;
+  color: #555;
+}
+
+.admin-modal-title {
+  margin: 0 0 24px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* 어드민 폼 (모달 / 향후 다른 어드민 폼에서 공용 가능) */
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-form-label {
+  font-size: 0.85rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.admin-form-input {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.admin-form-input:focus {
+  outline: none;
+  border-color: var(--mint-point);
+  box-shadow: 0 0 0 3px rgba(158, 225, 122, 0.18);
+}
+
+.admin-form-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #ff8fb1;
+}
+
+.admin-form-submit {
+  margin-top: 8px;
+  padding: 12px 24px;
+  background: var(--mint-point);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.admin-form-submit:hover:not(:disabled) {
+  background: #88d061;
+}
+
+.admin-form-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 대시보드 레이아웃 — 좌측 사이드바 240px + 우측 메인 */
+.admin-shell {
+  min-height: 100vh;
+  /* 메인 사이트보다 톤다운한 그라디언트로 어드민 영역의 컨텍스트 차이를 만듭니다. */
+  background: linear-gradient(180deg, #fafafa 0%, #f5f7f3 100%);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+
+.admin-sidebar {
+  background: #fff;
+  border-right: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  gap: 8px;
+  /* 사이드바를 뷰포트 높이만큼 sticky 로 고정. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.admin-sidebar-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-main);
+  padding: 4px 12px 16px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  /* 메뉴가 길어지면 사이드바 내부 스크롤만 발생하도록. */
+  overflow-y: auto;
+}
+
+.admin-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.admin-nav-item:hover {
+  background: #f5f5f5;
+}
+
+.admin-nav-item-active {
+  background: var(--soft-mint);
+}
+
+.admin-nav-item-active::before {
+  /* 좌측 mint 세로 막대로 활성 상태 강조. */
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  border-radius: 0 2px 2px 0;
+  background: var(--mint-point);
+}
+
+/* (.admin-nav-icon 규칙은 사이드바 아이콘 제거와 함께 삭제됨) */
+
+.admin-logout {
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  color: #666;
+  font-family: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.admin-logout:hover:not(:disabled) {
+  background: #f5f5f5;
+  color: var(--text-main);
+}
+
+.admin-logout:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-main {
+  padding: 32px;
+}
+
+.admin-main-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 16px rgba(58, 58, 58, 0.04);
+  min-height: 400px;
+}
+
+.admin-main-title {
+  margin: 0 0 16px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.admin-main-empty {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #aaa;
+}
+
+@media (max-width: 720px) {
+  .admin-shell {
+    /* 모바일: 사이드바를 상단 가로 메뉴로 전환. */
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .admin-nav-item-active::before {
+    /* 가로 메뉴에서는 하단 막대로 변경. */
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 3px;
+    border-radius: 2px 2px 0 0;
+  }
+
+  .admin-main {
+    padding: 20px 16px;
+  }
+}
+
+/* ─── 어드민 / 커미션 신청 관리 ─── */
+.admin-commissions {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-commissions-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-commissions-summary {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+.admin-commissions-summary-unread {
+  color: #ff8fb1;
+  font-weight: 500;
+}
+
+/* 필터 탭 + 검색 한 줄 */
+.admin-commissions-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-commissions-tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: #f3f3f3;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.admin-commissions-tab {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #777;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.admin-commissions-tab:hover {
+  color: var(--text-main);
+}
+
+.admin-commissions-tab-active {
+  background: #fff;
+  color: var(--text-main);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.admin-commissions-search {
+  width: 240px;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--text-main);
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.admin-commissions-search:focus {
+  outline: none;
+  border-color: var(--mint-point);
+  box-shadow: 0 0 0 3px rgba(158, 225, 122, 0.18);
+}
+
+.admin-commissions-empty {
+  margin: 0;
+  text-align: center;
+  color: #aaa;
+  font-size: 0.92rem;
+  padding: 64px 16px;
+}
+
+/* 목록 테이블 */
+.admin-commissions-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-commissions-table thead th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #999;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-commissions-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.admin-commissions-row:hover {
+  background: #fafafa;
+}
+
+.admin-commissions-row td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3f3f3;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.admin-commissions-row-unread td {
+  /* 미읽음 행은 텍스트를 진하게 + 약간 굵게 강조. */
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.admin-commissions-dot-col {
+  width: 28px;
+  text-align: center;
+}
+
+.admin-commissions-unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff8fb1;
+}
+
+.admin-commissions-nickname-only {
+  /* admin_label 미설정 시 닉네임만 회색으로. */
+  color: #999;
+}
+
+.admin-commissions-deadline {
+  /* 라벨 옆 마감일 표기 — 본문 텍스트보다 한 단계 약하게. */
+  color: #888;
+  font-weight: 400;
+  font-size: 0.85rem;
+}
+
+.admin-commissions-date-col {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #888;
+}
+
+/* 타입 뱃지 (목록 + 상세 모달 공용) */
+.admin-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.admin-type-live2d {
+  background: var(--soft-mint);
+  color: var(--mint-point);
+}
+
+.admin-type-illust {
+  background: #ffe7f1;
+  color: #ff8fb1;
+}
+
+/* ─── 상세 모달 (CommissionDetailModal) ─── */
+.admin-detail-modal {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-detail-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-detail-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 어드민 라벨 입력 박스 */
+.admin-detail-label-box {
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.admin-detail-label-title {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.admin-detail-label-hint {
+  margin: 4px 0 12px;
+  font-size: 0.78rem;
+  color: #aaa;
+}
+
+.admin-detail-label-row {
+  /* 라벨 input(2fr) + 마감일 input(1fr) + 저장 버튼(auto) 한 줄 배치. */
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+/* PDF 캡처 영역 */
+.admin-detail-pdf-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-detail-section-title {
+  margin: 12px 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-detail-section-title:first-child {
+  margin-top: 0;
+}
+
+.admin-detail-grid {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-detail-grid-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.admin-detail-grid-row dt {
+  font-size: 0.82rem;
+  color: #999;
+}
+
+.admin-detail-grid-row dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.admin-detail-text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.admin-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+
+/* 액션 버튼 (상세 모달 / 라벨 저장 공용) */
+.admin-action-btn {
+  padding: 10px 20px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.admin-action-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.admin-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-action-btn-primary {
+  background: var(--mint-point);
+  color: #fff;
+  border-color: var(--mint-point);
+}
+
+.admin-action-btn-primary:hover:not(:disabled) {
+  background: #88d061;
+  border-color: #88d061;
+}
+
+.admin-action-btn-danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: transparent;
+}
+
+.admin-action-btn-danger:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+/* 삭제 확인 모달 — 상세 모달 위에 한 단계 더 쌓임 */
+.admin-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 110;
+  padding: 16px;
+}
+
+.admin-confirm-modal {
+  width: 100%;
+  max-width: 360px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.admin-confirm-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.admin-confirm-msg {
+  margin: 0 0 20px;
+  font-size: 0.88rem;
+  color: #777;
+  line-height: 1.5;
+}
+
+.admin-confirm-sub {
+  /* 보조 안내(예: 닫힘 슬롯은 보존 등) 한 단계 톤다운 */
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #aaa;
+}
+
+.admin-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .admin-commissions-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-commissions-search {
+    width: 100%;
+  }
+
+  .admin-commissions-table thead {
+    /* 좁은 화면에서는 헤더 숨기고 row 자체로 정보 노출 */
+    display: none;
+  }
+
+  .admin-commissions-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 4px 12px;
+    padding: 12px 0;
+  }
+
+  .admin-commissions-row td {
+    padding: 0;
+    border: none;
+  }
+
+  .admin-detail-grid-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .admin-detail-label-row {
+    /* 모바일: 라벨/마감일/저장을 세로 스택. */
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── PDF 전용 off-screen 렌더 영역 ─── */
+.admin-pdf-source {
+  /* 좌측으로 멀리 보내 시각적으로 숨기되 레이아웃은 유지(html2canvas 가 측정 가능하도록).
+     display:none / visibility:hidden 은 0 사이즈가 되어 캡처가 깨집니다. */
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  width: 760px;
+  background: #ffffff;
+  padding: 48px 56px;
+  color: #1a1a1a;
+  font-family: var(--font-dm-sans), sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  /* z-index 음수로 혹시라도 hit-test 영향을 받지 않게. */
+  z-index: -1;
+  pointer-events: none;
+}
+
+.admin-pdf-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.admin-pdf-meta {
+  margin: 0 0 28px;
+  font-size: 12px;
+  color: #888;
+}
+
+.admin-pdf-section {
+  margin: 24px 0 12px;
+  padding-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #ddd;
+}
+
+.admin-pdf-grid {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-pdf-grid-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.admin-pdf-grid-row dt {
+  font-size: 12px;
+  color: #888;
+  font-weight: 500;
+}
+
+.admin-pdf-grid-row dd {
+  margin: 0;
+  font-size: 14px;
+  color: #1a1a1a;
+}
+
+.admin-pdf-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #1a1a1a;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.admin-pdf-bottom-spacer {
+  /* 마지막 콘텐츠가 PDF 페이지 하단에 딱 붙거나 잘리는 것을 방지하기 위한 여백. */
+  height: 40px;
+}
+
+/* PDF 안 첨부 이미지는 더 이상 off-screen 영역에서 렌더하지 않습니다.
+   각 이미지는 jsPDF 가 별도 페이지에 직접 addImage 로 추가 (잘림 방지 + 비율 유지). */
+
+/* 어드민 상세 모달 안 첨부 이미지 그리드 (썸네일 → 새 탭 확대) */
+.admin-detail-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.admin-detail-image-link {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f0f0f0;
+  cursor: zoom-in;
+  transition: transform 0.15s ease;
+}
+
+.admin-detail-image-link:hover {
+  transform: scale(1.02);
+}
+
+.admin-detail-image-link img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── 어드민 / 슬롯 관리 ─── */
+.admin-slots-sub {
+  margin: 4px 0 28px;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+.admin-slots-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.admin-slots-section-title {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.admin-slots-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* 사용자 페이지의 .l2d-slot 을 button 으로 사용할 때 브라우저 기본 스타일 정리. */
+.admin-slot-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.admin-slot-wrap button.l2d-slot {
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+/* 우측 상단 X — hover 전엔 숨김, hover 시 노출. */
+.admin-slot-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 0.62rem;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  opacity: 0;
+  z-index: 1;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-slot-wrap:hover .admin-slot-remove,
+.admin-slot-wrap:focus-within .admin-slot-remove {
+  opacity: 1;
+}
+
+.admin-slot-remove:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.admin-slot-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0; /* 비활성 상태에선 노출도 비활성 */
+}
+
+/* 슬롯 추가 버튼 — 점선 보더, 슬롯 카드와 동일 사이즈 */
+.admin-slot-add {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1.5px dashed #ccc;
+  background: transparent;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: #999;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-slot-add:hover:not(:disabled) {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.08);
+}
+
+.admin-slot-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 신청 받기 토글 */
+.admin-slots-section-footer {
+  display: flex;
+  align-items: center;
+  padding-top: 4px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.admin-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-toggle-track {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ddd;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.admin-toggle-track::after {
+  /* 토글 핸들 */
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: left 0.2s ease;
+}
+
+.admin-toggle-on .admin-toggle-track {
+  background: var(--mint-point);
+}
+
+.admin-toggle-on .admin-toggle-track::after {
+  left: 23px;
+}
+
+.admin-toggle-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--mint-point);
+}
+
+.admin-toggle-label-off {
+  color: #888;
+}
+
+/* ─── 어드민 / 배너 관리 ─── */
+.admin-banners-sub {
+  margin: 4px 0 24px;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+.admin-banners-guide {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.admin-banners-guide p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.admin-banners-guide strong {
+  display: inline-block;
+  width: 90px;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.admin-banner-preview {
+  width: 100%;
+  /* 메인 페이지의 배너 영역과 동일 비율(2:1) 로 미리보기. */
+  aspect-ratio: 2 / 1;
+  background: #f5f5f5;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.admin-banner-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.admin-banner-empty {
+  color: #aaa;
+  font-size: 0.95rem;
+}
+
+.admin-banner-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-banner-preview:hover .admin-banner-delete {
+  opacity: 1;
+}
+
+.admin-banner-delete:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.admin-banner-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  /* 토스트 / 에러 메시지가 버튼 옆에 같이 들어가도록 간격 확보. */
+  gap: 16px;
+}
+
+/* 업로드 미리보기 모달: detail 모달의 변형 */
+.admin-banner-upload-modal {
+  /* 2:1 미리보기를 충분히 크게 보여주기 위해 기본보다 넓게. */
+  max-width: 720px;
+}
+
+.admin-banner-upload-msg {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  text-align: center;
+}
+
+.admin-banner-upload-preview {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  background: #f5f5f5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ─── 어드민 / 샘플 페이지 관리 ─── */
+.admin-samples-sub {
+  margin: 4px 0 24px;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+/* 탭 + (인디케이터 + 미리보기) 한 줄. 양쪽 끝 정렬. */
+.admin-samples-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.admin-samples-toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 미리보기 버튼 — outline 스타일 */
+.admin-samples-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #555;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-samples-preview-btn:hover {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.06);
+}
+
+/* 미리보기 모달 */
+.admin-samples-preview-modal {
+  max-width: 1000px;
+  max-height: 90vh;
+}
+
+.admin-samples-preview-body {
+  /* 사용자 페이지 환경을 암시하는 옅은 배경 */
+  background: #fafafa;
+}
+
+.admin-samples-tabs {
+  display: inline-flex;
+  gap: 2px;
+  background: #f3f3f3;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+/* ─── 어드민 / 공지 + 가격 공통 toolbar ─── */
+.admin-notices-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-notices-sub {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+.admin-notices-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.admin-notices-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-notices-section-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* 저작권 표 편집기 */
+.admin-copyright {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-copyright-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-copyright-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #888;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-copyright-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f5f5f5;
+  vertical-align: middle;
+}
+
+.admin-copyright-handle-col {
+  width: 28px;
+}
+
+.admin-copyright-label-col {
+  width: 160px;
+}
+
+.admin-copyright-delete-col {
+  width: 32px;
+}
+
+.admin-copyright-handle {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  cursor: grab;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  user-select: none;
+  touch-action: none;
+}
+
+.admin-copyright-handle:hover {
+  color: #555;
+  background: #f5f5f5;
+}
+
+.admin-copyright-handle:active {
+  cursor: grabbing;
+}
+
+.admin-copyright-label-input {
+  /* 일반 admin-form-input 보다 한 단계 작게 */
+  padding: 6px 10px;
+  font-size: 0.88rem;
+}
+
+.admin-copyright-check-cell {
+  text-align: center;
+}
+
+.admin-copyright-check {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--mint-point);
+}
+
+.admin-copyright-empty {
+  text-align: center;
+  color: #aaa;
+  font-size: 0.88rem;
+  padding: 24px 0;
+}
+
+.admin-copyright-add {
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px dashed #c0c0c0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #666;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.admin-copyright-add:hover:not(:disabled) {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.06);
+}
+
+/* ─── 어드민 / 가격 관리 ─── */
+.admin-pricing-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin-top: 16px;
+}
+
+.admin-pricing-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-pricing-group-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.admin-pricing-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-pricing-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #aaa;
+  padding: 20px 0;
+  text-align: center;
+  border: 1px dashed #eee;
+  border-radius: 8px;
+}
+
+.admin-pricing-row {
+  display: grid;
+  /* handle | name (2fr) | price (140px) | (approx checkbox auto) | description (2fr) | delete */
+  grid-template-columns: 24px 2fr 140px auto 2fr 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.admin-pricing-handle {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  cursor: grab;
+  font-size: 0.85rem;
+  padding: 0;
+  user-select: none;
+  touch-action: none;
+}
+
+.admin-pricing-handle:hover {
+  color: #555;
+}
+
+.admin-pricing-name,
+.admin-pricing-price,
+.admin-pricing-desc {
+  padding: 8px 10px;
+  font-size: 0.88rem;
+}
+
+.admin-pricing-price {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-pricing-approx {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #888;
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-pricing-approx input {
+  accent-color: var(--mint-point);
+}
+
+.admin-pricing-add-btn {
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px dashed #c0c0c0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #666;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.admin-pricing-add-btn:hover {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.06);
+}
+
+/* ─── 어드민 / 작업 과정 관리 ─── */
+.admin-process-section {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-process-section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.admin-process-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-process-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #aaa;
+  padding: 20px 0;
+  text-align: center;
+  border: 1px dashed #eee;
+  border-radius: 8px;
+}
+
+/* 단계 row — 헤더 한 줄(handle + num + title + toggle + delete) + 펼쳐지는 description */
+.admin-process-row {
+  display: grid;
+  grid-template-columns: 24px 36px 1fr auto 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.admin-process-num {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--mint-point);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.admin-process-title {
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+.admin-process-toggle {
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-process-toggle:hover {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+}
+
+.admin-process-desc {
+  /* 헤더 5컬럼 grid 의 전체 폭 차지. */
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
+
+/* 타입 카드 row — handle + key + title + delete (한 줄) + description (전폭 다음 줄) */
+.admin-type-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 2fr 28px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.admin-type-key,
+.admin-type-title {
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+.admin-type-key {
+  font-family: ui-monospace, monospace;
+  color: #666;
+}
+
+.admin-type-desc {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* 카드 본문 영역 — 헤더 아래 한 단계 들여 시각적 위계 명시 */
+  padding: 8px 10px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.admin-type-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-type-items-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #aaa;
+  padding: 12px 0;
+  text-align: center;
+}
+
+.admin-type-item-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 2fr 24px;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-type-item-input {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.admin-type-add-item {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px dashed #c0c0c0;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: #666;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.admin-type-add-item:hover {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.06);
+}
+
+@media (max-width: 720px) {
+  .admin-process-row {
+    grid-template-columns: 24px 36px 1fr 28px;
+  }
+  .admin-process-toggle {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: flex-start;
+  }
+
+  .admin-type-row {
+    grid-template-columns: 24px 1fr 28px;
+  }
+  .admin-type-title {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .admin-pricing-row {
+    grid-template-columns: 24px 1fr 28px;
+    grid-template-rows: auto auto auto;
+  }
+
+  .admin-pricing-name {
+    grid-column: 2 / 3;
+    grid-row: 1;
+  }
+
+  .admin-pricing-price {
+    grid-column: 2 / 3;
+    grid-row: 2;
+  }
+
+  .admin-pricing-approx {
+    grid-column: 2 / 3;
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .admin-pricing-desc {
+    grid-column: 2 / 3;
+    grid-row: 3;
+  }
+}
+
+/* 자동 저장 인디케이터 — 상태별 색상. idle 일 때는 빈 슬롯 유지(레이아웃 점프 방지). */
+.admin-samples-save-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: transparent;
+  min-height: 20px;
+  transition: color 0.15s ease;
+}
+
+.admin-samples-save-saving {
+  color: #888;
+}
+
+.admin-samples-save-saved {
+  color: var(--mint-point);
+}
+
+.admin-samples-save-error {
+  color: #ff8fb1;
+}
+
+.admin-samples-tab {
+  padding: 8px 18px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: #777;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-samples-tab:hover {
+  color: var(--text-main);
+}
+
+.admin-samples-tab-active {
+  background: #fff;
+  color: var(--mint-point);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.admin-samples-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.admin-samples-empty {
+  margin: 16px 0;
+  font-size: 0.92rem;
+  color: #aaa;
+  text-align: center;
+  padding: 32px 16px;
+  border: 1px dashed #e0e0e0;
+  border-radius: 10px;
+}
+
+/* 블록 wrapper — sortable 단위. 카드 + (이미지 블록의 경우) height handle 묶음. */
+.admin-block-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-block-wrapper-dragging {
+  /* 드래그 중 시각 강조 — z-index 만 wrapper, 그림자/투명도는 카드에만 적용해
+     wrapper 의 빈 공간(handle 영역) 까지 그림자가 번지지 않도록. */
+  z-index: 10;
+}
+
+.admin-block-wrapper-dragging .admin-block-card {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  opacity: 0.95;
+}
+
+/* 블록 카드 — 좌측 핸들 + 가운데 본문 + 우측 삭제 */
+.admin-block-card {
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  gap: 12px;
+  align-items: stretch;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.admin-block-handle {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  font-size: 1rem;
+  cursor: grab;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+  /* 드래그 중에 글자 선택되지 않도록. */
+  user-select: none;
+  touch-action: none;
+}
+
+.admin-block-handle:hover {
+  color: #555;
+  background: #f5f5f5;
+}
+
+.admin-block-handle:active {
+  cursor: grabbing;
+}
+
+.admin-block-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-block-type-tag {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f5f5f5;
+  font-size: 0.7rem;
+  color: #888;
+  letter-spacing: 0.04em;
+}
+
+.admin-block-delete {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.admin-block-delete:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+/* 텍스트 블록 — tiptap 리치 에디터 (toolbar + 본문) */
+.admin-block-rich {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-block-rich:focus-within {
+  border-color: var(--mint-point);
+  box-shadow: 0 0 0 3px rgba(158, 225, 122, 0.15);
+}
+
+.admin-block-rich-loading {
+  /* SSR 시 editor 가 아직 마운트되지 않았을 때 자리를 잡아주는 빈 박스. */
+  min-height: 140px;
+}
+
+.admin-block-rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  background: #f8f8f8;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.admin-block-rich-divider {
+  width: 1px;
+  height: 18px;
+  background: #ddd;
+  margin: 0 4px;
+}
+
+.admin-block-rich-btn {
+  background: transparent;
+  border: none;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.admin-block-rich-btn:hover {
+  background: #ececec;
+}
+
+.admin-block-rich-btn-active {
+  background: var(--mint-point);
+  color: #fff;
+}
+
+.admin-block-rich-btn-active:hover {
+  background: #88d061;
+}
+
+/* tiptap 본문(EditorContent) */
+.admin-block-rich-content {
+  outline: none;
+  min-height: 100px;
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.admin-block-rich-content > p {
+  margin: 0 0 0.5em;
+}
+
+.admin-block-rich-content > p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-block-rich-content > h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 0.5em;
+}
+
+.admin-block-rich-content > h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 0.4em;
+}
+
+/* tiptap ProseMirror 가 ol/ul 의 padding 을 reset 하지 않도록 명시 — 편집 중에 번호/불릿 가시화. */
+.admin-block-rich-content ol,
+.admin-block-rich-content ul {
+  margin: 0 0 0.5em;
+  padding-left: 1.4em;
+}
+
+.admin-block-rich-content ol {
+  list-style: decimal;
+}
+
+.admin-block-rich-content ul {
+  list-style: disc;
+}
+
+.admin-block-rich-content li {
+  margin: 0.15em 0;
+}
+
+/* 유튜브 블록 */
+.admin-block-youtube {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-block-youtube-preview {
+  /* 16:9 비율 임베드 */
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.admin-block-youtube-preview iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.admin-block-youtube-warn {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #ff8fb1;
+}
+
+/* 구분선 블록 */
+.admin-block-divider-line {
+  border: none;
+  border-top: 1px solid #ddd;
+  margin: 12px 0;
+}
+
+/* 이미지 row 블록 */
+.admin-block-image-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.admin-block-image-row-images {
+  display: flex;
+  width: 100%;
+  background: #f5f5f5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.admin-block-image-empty {
+  width: 100%;
+  background: #fafafa;
+  border: 1px dashed #ddd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  font-size: 0.88rem;
+}
+
+.admin-block-image-cell {
+  position: relative;
+  flex-shrink: 1;
+  min-width: 60px;
+  height: 100%;
+  overflow: hidden;
+  /* 이미지 영역 인지를 위해 매우 옅은 배경만 유지. 투명 PNG 도 거의 그대로 보임. */
+  background: #fafafa;
+}
+
+.admin-block-image-cell img {
+  width: 100%;
+  height: 100%;
+  /* contain: 비율 유지 + 투명 영역 보존. 사용자 페이지와 동일. */
+  object-fit: contain;
+  display: block;
+}
+
+.admin-block-image-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.7rem;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  z-index: 1;
+}
+
+.admin-block-image-cell:hover .admin-block-image-remove {
+  opacity: 1;
+}
+
+.admin-block-image-remove:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+/* 이미지 사이의 너비 조절 핸들 (세로 막대) */
+.admin-block-image-w-handle {
+  flex: 0 0 8px;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: col-resize;
+  touch-action: none;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.admin-block-image-w-handle::before {
+  /* 가운데 시각적 그립 표시 */
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 24px;
+  background: #999;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+.admin-block-image-w-handle:hover {
+  background: rgba(158, 225, 122, 0.3);
+}
+
+.admin-block-image-w-handle:hover::before {
+  background: var(--mint-point);
+}
+
+/* row 높이 조절 핸들 — 이미지 영역 바깥(아래) 의 독립 막대.
+   회색 배경 + 가운데 그립 표시 + ns-resize 커서. */
+.admin-block-image-h-handle {
+  margin-top: 6px;
+  height: 14px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  cursor: ns-resize;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.admin-block-image-h-handle::before {
+  content: "";
+  width: 36px;
+  height: 4px;
+  background: #c0c0c0;
+  border-radius: 2px;
+  transition: background 0.15s ease;
+}
+
+.admin-block-image-h-handle:hover {
+  background: #e5e5e5;
+}
+
+.admin-block-image-h-handle:hover::before {
+  background: var(--mint-point);
+}
+
+.admin-block-image-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.admin-block-image-add {
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px dashed #c0c0c0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: #666;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.admin-block-image-add:hover:not(:disabled) {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.06);
+}
+
+.admin-block-image-add-disabled,
+.admin-block-image-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 블록 추가 버튼 + 드롭다운 */
+.admin-samples-add {
+  position: relative;
+  display: inline-block;
+}
+
+.admin-samples-add-btn {
+  padding: 10px 18px;
+  background: var(--mint-point);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.admin-samples-add-btn:hover:not(:disabled) {
+  background: #88d061;
+}
+
+.admin-samples-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-samples-add-menu {
+  /* 버튼 위쪽으로 펼쳐지는 popover. 페이지 하단에 위치하므로 위로 띄움. */
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  padding: 6px;
+  z-index: 5;
+}
+
+.admin-samples-add-item {
+  text-align: left;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.admin-samples-add-item:hover {
+  background: #f5f5f5;
+}
+
+.admin-banner-upload-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── 어드민 / 사이트 설정 ─── */
+.admin-settings-sub {
+  margin: 4px 0 28px;
+  font-size: 0.88rem;
+  color: #888;
+}
+
+.admin-settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.admin-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* 입력칸이 너무 넓어지지 않도록 제한해 한 줄에 시선이 머무는 거리 단축. */
+  max-width: 560px;
+}
+
+.admin-settings-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.admin-settings-hint {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  color: #888;
+  line-height: 1.45;
+}
+
+.admin-settings-textarea {
+  resize: vertical;
+  min-height: 84px;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+.admin-settings-footer {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.admin-settings-toast {
+  /* 저장 성공 토스트 — 별도 라이브러리 없이 인라인 메시지로 표시. */
+  font-size: 0.85rem;
+  color: var(--mint-point);
+  font-weight: 500;
+}
+
+.admin-settings-toast-err {
+  color: #ff8fb1;
 }

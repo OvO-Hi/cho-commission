@@ -14,11 +14,16 @@
 /out/
 
 # production
-/build
+/build/
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
 
 # debug
 npm-debug.log*
@@ -27,6 +32,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
