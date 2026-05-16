@@ -2205,6 +2205,10 @@ a {
 }
 
 .admin-sidebar-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -3468,7 +3472,6 @@ a {
   gap: 2px;
 }
 
-.admin-copyright-col-i18n,
 .admin-copyright-col-delete {
   display: inline-flex;
   align-items: center;
@@ -3486,52 +3489,9 @@ a {
   transition: color 0.15s ease, background 0.15s ease;
 }
 
-.admin-copyright-col-i18n:hover:not(:disabled),
-.admin-copyright-col-delete:hover:not(:disabled) {
-  color: #333;
-  background: #f3f3f3;
-}
-
 .admin-copyright-col-delete:hover:not(:disabled) {
   color: #d44;
-}
-
-/* 다국어 라벨 팝오버 — 헤더 셀 기준 absolute. 좁은 화면에서는 우측으로
-   살짝 당겨서 카드 밖으로 새지 않게. */
-.admin-copyright-col-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 20;
-  width: 240px;
-  background: #fff;
-  border: 1px solid #e3e3e3;
-  border-radius: 10px;
-  padding: 12px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.admin-copyright-col-popover-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.admin-copyright-col-popover-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #777;
-  letter-spacing: 0.04em;
-}
-
-.admin-copyright-col-popover-hint {
-  margin: 0;
-  font-size: 0.7rem;
-  color: #aaa;
-  line-height: 1.4;
+  background: #f3f3f3;
 }
 
 /* + 열 추가 버튼 셀 — 헤더에서는 버튼이 보이고, 행에서는 빈 셀로 자리만 유지. */
@@ -4634,3 +4594,4 @@ a {
     transition: none;
   }
 }
+

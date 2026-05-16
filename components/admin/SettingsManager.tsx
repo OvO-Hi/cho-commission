@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { SETTING_KEYS } from "@/lib/admin/setting-keys";
 import { createClient } from "@/lib/supabase/client";
+import type { Language } from "@/types/database";
 
 type SettingsState = {
   intro: string;
@@ -14,9 +15,10 @@ type SettingsState = {
 
 type Props = {
   initial: SettingsState;
+  locale: Language;
 };
 
-export default function SettingsManager({ initial }: Props) {
+export default function SettingsManager({ initial, locale }: Props) {
   const router = useRouter();
   const [state, setState] = useState<SettingsState>(initial);
   // 저장 완료된 시점의 스냅샷 — dirty 비교용. 저장 후 현재 상태로 갱신.
@@ -66,7 +68,7 @@ export default function SettingsManager({ initial }: Props) {
           .from("settings")
           .select("id")
           .eq("key", key)
-          .eq("language", "ko")
+          .eq("language", locale)
           .maybeSingle();
 
         if (existing) {
@@ -75,9 +77,21 @@ export default function SettingsManager({ initial }: Props) {
             .update({ value })
             .eq("id", existing.id);
         }
+
+        // translation_key: 같은 key 의 ko row 가 있으면 그 그룹을 따라가고,
+        // 없으면(=마이그레이션 전 시드 누락 케이스) 새 uuid.
+        const { data: koRow } = await supabase
+          .from("settings")
+          .select("translation_key")
+          .eq("key", key)
+          .eq("language", "ko")
+          .maybeSingle();
+
+        const translationKey = koRow?.translation_key ?? crypto.randomUUID();
+
         return supabase
           .from("settings")
-          .insert({ key, value, language: "ko" });
+          .insert({ key, value, language: locale, translation_key: translationKey });
       }),
     );
 

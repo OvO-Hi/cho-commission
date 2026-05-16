@@ -1,17 +1,19 @@
 import NoticesManager from "@/components/admin/NoticesManager";
+import { getCurrentLocale } from "@/lib/i18n/locale";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminNoticesPage() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
 
   const [noticesRes, rulesRes, columnsRes, valuesRes] = await Promise.all([
     supabase
       .from("notices")
       .select("*")
       .eq("category", "common")
-      .eq("language", "ko")
+      .eq("language", locale)
       .order("order_num", { ascending: true }),
     supabase
       .from("copyright_rules")
@@ -43,6 +45,7 @@ export default async function AdminNoticesPage() {
       initialRules={rulesRes.data ?? []}
       initialColumns={columnsRes.data ?? []}
       initialValues={valuesRes.data ?? []}
+      locale={locale}
     />
   );
 }

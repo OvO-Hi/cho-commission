@@ -1,5 +1,6 @@
 import SettingsManager from "@/components/admin/SettingsManager";
 import { SETTING_KEYS } from "@/lib/admin/setting-keys";
+import { getCurrentLocale } from "@/lib/i18n/locale";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ const DEFAULTS = {
 
 export default async function AdminSettingsPage() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
 
   const { data, error } = await supabase
     .from("settings")
@@ -22,7 +24,7 @@ export default async function AdminSettingsPage() {
       SETTING_KEYS.snsX,
       SETTING_KEYS.snsEmail,
     ])
-    .eq("language", "ko");
+    .eq("language", locale);
 
   if (error) {
     console.error("[admin/settings] fetch failed:", error.message);
@@ -32,6 +34,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <SettingsManager
+      locale={locale}
       initial={{
         intro: map.get(SETTING_KEYS.intro) ?? DEFAULTS.intro,
         snsX: map.get(SETTING_KEYS.snsX) ?? DEFAULTS.snsX,

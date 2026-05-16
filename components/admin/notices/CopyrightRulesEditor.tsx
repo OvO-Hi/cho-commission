@@ -32,6 +32,7 @@ import type {
   CopyrightColumn,
   CopyrightRule,
   CopyrightRuleValue,
+  Language,
 } from "@/types/database";
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -40,7 +41,20 @@ type Props = {
   initialRules: CopyrightRule[];
   initialColumns: CopyrightColumn[];
   initialValues: CopyrightRuleValue[];
+  // 어드민 사이드바의 LanguageToggle 로 정해지는 현재 편집 언어.
+  // copyright_columns 는 label_ko/en/jp 한 row 통합 패턴이라 이 prop 으로
+  // 어느 컬럼을 편집할지만 결정.
+  locale: Language;
 };
+
+// 현재 locale 에서 column 라벨이 들어있는 컬럼명.
+function localeLabelColumn(
+  locale: Language,
+): "label_ko" | "label_en" | "label_jp" {
+  if (locale === "en") return "label_en";
+  if (locale === "jp") return "label_jp";
+  return "label_ko";
+}
 
 // 셀 lookup 키. (rule, column) 쌍을 한 문자열로 압축해서 Map 키로 사용.
 function cellKey(ruleId: number, columnId: number) {
@@ -51,6 +65,7 @@ export default function CopyrightRulesEditor({
   initialRules,
   initialColumns,
   initialValues,
+  locale,
 }: Props) {
   const router = useRouter();
   const notifier = useSaveStateNotifier();
@@ -204,17 +219,25 @@ export default function CopyrightRulesEditor({
     const max =
       columns.length === 0 ? -1 : Math.max(...columns.map((c) => c.order_num));
     const supabase = createClient();
+    // label_ko 가 NOT NULL 이라 항상 채움. 현재 탭 언어의 label 도 같은 값으로
+    // 초기화 — 어드민이 각 탭에서 따로 수정 가능.
+    const defaultLabel = "새 열";
+    const insertPayload: {
+      column_key: null;
+      label_ko: string;
+      label_en: string | null;
+      label_jp: string | null;
+      order_num: number;
+    } = {
+      column_key: null,
+      label_ko: defaultLabel,
+      label_en: locale === "en" ? defaultLabel : null,
+      label_jp: locale === "jp" ? defaultLabel : null,
+      order_num: max + 1,
+    };
     const { data, error } = await supabase
       .from("copyright_columns")
-      .insert({
-        // 마이그레이션으로 시드된 5개 열만 column_key 를 가짐.
-        // 신규 열은 null — DB 가 정체성 추적을 안 한다.
-        column_key: null,
-        label_ko: "새 열",
-        label_en: null,
-        label_jp: null,
-        order_num: max + 1,
-      })
+      .insert(insertPayload)
       .select()
       .single();
     setBusy(false);
@@ -331,6 +354,7 @@ export default function CopyrightRulesEditor({
                   <ColumnHeader
                     key={col.id}
                     column={col}
+                    locale={locale}
                     onUpdate={(patch) => updateColumnLabel(col.id, patch)}
                     onDelete={() => deleteColumn(col.id)}
                     disabled={busy}
@@ -398,15 +422,19 @@ export default function CopyrightRulesEditor({
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// 헤더 셀 — ko 인라인 입력 + 🌐 팝오버(en/jp) + X 삭제
+// 헤더 셀 — 현재 locale 의 label 인라인 편집 + X 삭제.
+// (Phase 2 이전엔 🌐 팝오버에서 en/jp 를 별도 편집했지만, 사이드바 LanguageToggle
+//  이 탭 역할을 하므로 팝오버 제거.)
 // ─────────────────────────────────────────────────────────────────────────
 function ColumnHeader({
   column,
+  locale,
   onUpdate,
   onDelete,
   disabled,
 }: {
   column: CopyrightColumn;
+  locale: Language;
   onUpdate: (patch: {
     label_ko?: string;
     label_en?: string | null;
@@ -415,36 +443,32 @@ function ColumnHeader({
   onDelete: () => void;
   disabled: boolean;
 }) {
-  const [labelKo, setLabelKo] = useState(column.label_ko);
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const labelCol = localeLabelColumn(locale);
+  // ko 는 NOT NULL 이라 string, en/jp 는 nullable. 빈 문자열로 통일해 input 에 표시.
+  const initialLabel = column[labelCol] ?? "";
+  const [label, setLabel] = useState(initialLabel);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => setLabelKo(column.label_ko), [column.id, column.label_ko]);
+  useEffect(() => setLabel(initialLabel), [column.id, initialLabel]);
 
-  // 팝오버 외부 클릭 / ESC 로 닫기.
-  useEffect(() => {
-    if (!popoverOpen) return;
-    function onPointer(e: MouseEvent) {
-      if (!popoverRef.current) return;
-      if (!popoverRef.current.contains(e.target as Node)) setPopoverOpen(false);
+  function commit(next: string) {
+    // en/jp 의 경우 빈 문자열은 null 로 저장 (사용자 페이지가 ko 로 fallback 하도록).
+    // ko 는 NOT NULL 이므로 빈 값을 그대로 보내면 DB 가 거부 — 사용자가 빈 값으로
+    // 두려는 경우 어쩔 수 없이 그대로 보냄(DB 에러로 표시 됨).
+    if (labelCol === "label_ko") {
+      onUpdate({ label_ko: next });
+    } else if (labelCol === "label_en") {
+      onUpdate({ label_en: next.trim() === "" ? null : next });
+    } else {
+      onUpdate({ label_jp: next.trim() === "" ? null : next });
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setPopoverOpen(false);
-    }
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [popoverOpen]);
+  }
 
-  function scheduleKoSave(next: string) {
+  function scheduleSave(next: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      if (next !== column.label_ko) onUpdate({ label_ko: next });
+      if (next !== initialLabel) commit(next);
     }, SAVE_DEBOUNCE_MS);
   }
 
@@ -454,33 +478,23 @@ function ColumnHeader({
         <input
           type="text"
           className="admin-copyright-col-input"
-          value={labelKo}
+          value={label}
           placeholder="열 이름"
           onChange={(e) => {
-            setLabelKo(e.target.value);
-            scheduleKoSave(e.target.value);
+            setLabel(e.target.value);
+            scheduleSave(e.target.value);
           }}
           onBlur={() => {
             if (debounceRef.current) {
               clearTimeout(debounceRef.current);
               debounceRef.current = null;
-              if (labelKo !== column.label_ko) onUpdate({ label_ko: labelKo });
+              if (label !== initialLabel) commit(label);
             }
           }}
           disabled={disabled}
-          aria-label="열 이름 (한국어)"
+          aria-label={`열 이름 (${locale.toUpperCase()})`}
         />
         <div className="admin-copyright-col-actions">
-          <button
-            type="button"
-            className="admin-copyright-col-i18n"
-            onClick={() => setPopoverOpen((v) => !v)}
-            aria-label="다국어 라벨 편집"
-            aria-expanded={popoverOpen}
-            disabled={disabled}
-          >
-            <span aria-hidden="true">🌐</span>
-          </button>
           <button
             type="button"
             className="admin-copyright-col-delete"
@@ -492,85 +506,7 @@ function ColumnHeader({
           </button>
         </div>
       </div>
-
-      {popoverOpen && (
-        <div
-          ref={popoverRef}
-          className="admin-copyright-col-popover"
-          role="dialog"
-          aria-label="다국어 라벨"
-        >
-          <I18nField
-            label="English"
-            initial={column.label_en ?? ""}
-            onCommit={(v) =>
-              onUpdate({ label_en: v.trim() === "" ? null : v })
-            }
-            disabled={disabled}
-          />
-          <I18nField
-            label="日本語"
-            initial={column.label_jp ?? ""}
-            onCommit={(v) =>
-              onUpdate({ label_jp: v.trim() === "" ? null : v })
-            }
-            disabled={disabled}
-          />
-          <p className="admin-copyright-col-popover-hint">
-            비워두면 사용자 페이지에서 한국어 라벨로 대체됩니다.
-          </p>
-        </div>
-      )}
     </th>
-  );
-}
-
-// 팝오버 내부 입력 — onBlur 또는 디바운스로 commit.
-function I18nField({
-  label,
-  initial,
-  onCommit,
-  disabled,
-}: {
-  label: string;
-  initial: string;
-  onCommit: (value: string) => void;
-  disabled: boolean;
-}) {
-  const [value, setValue] = useState(initial);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => setValue(initial), [initial]);
-
-  function schedule(next: string) {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      if (next !== initial) onCommit(next);
-    }, SAVE_DEBOUNCE_MS);
-  }
-
-  return (
-    <label className="admin-copyright-col-popover-field">
-      <span className="admin-copyright-col-popover-label">{label}</span>
-      <input
-        type="text"
-        className="admin-form-input"
-        value={value}
-        onChange={(e) => {
-          setValue(e.target.value);
-          schedule(e.target.value);
-        }}
-        onBlur={() => {
-          if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-            debounceRef.current = null;
-            if (value !== initial) onCommit(value);
-          }
-        }}
-        disabled={disabled}
-      />
-    </label>
   );
 }
 

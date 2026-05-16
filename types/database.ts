@@ -41,6 +41,8 @@ export type Notice = {
   content: string;
   order_num: number;
   language: Language;
+  // 같은 의미의 ko/en/jp 그룹 식별자. 마이그레이션 002 로 도입.
+  translation_key: string;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +55,7 @@ export type ProcessStep = {
   // 단계 호버/탭 시 펼쳐지는 상세 설명. 리치 텍스트 HTML 또는 null/빈문자열.
   description: string | null;
   language: Language;
+  translation_key: string;
   created_at: string;
   updated_at: string;
 }
@@ -70,6 +73,7 @@ export type PriceItem = {
   // 추가금에서 "약 ~원" 표기 (UI 에서 가격 뒤에 "~" 붙임).
   is_approx: boolean;
   language: Language;
+  translation_key: string;
   order_num: number;
   created_at: string;
   updated_at: string;
@@ -123,6 +127,7 @@ export type Setting = {
   key: string;
   value: string;
   language: Language;
+  translation_key: string;
   updated_at: string;
 }
 
@@ -149,6 +154,7 @@ export type Live2DType = {
   title: string;
   order_num: number;
   language: string;
+  translation_key: string;
   created_at: string;
   updated_at: string;
 };

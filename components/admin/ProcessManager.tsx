@@ -28,6 +28,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type {
   CommissionCategory,
+  Language,
   Live2DType,
   Live2DTypeItem,
   ProcessStep,
@@ -44,12 +45,14 @@ type Props = {
   initialSteps: ProcessStep[];
   initialTypes: Live2DType[];
   initialTypeItems: Live2DTypeItem[];
+  locale: Language;
 };
 
 export default function ProcessManager({
   initialSteps,
   initialTypes,
   initialTypeItems,
+  locale,
 }: Props) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] =
@@ -112,7 +115,8 @@ export default function ProcessManager({
         step_num: max + 1,
         title: "",
         description: null,
-        language: "ko",
+        language: locale,
+        translation_key: crypto.randomUUID(),
       })
       .select()
       .single();
@@ -126,19 +130,22 @@ export default function ProcessManager({
     router.refresh();
   }
 
-  async function deleteStep(id: string) {
+  async function deleteStep(step: ProcessStep) {
+    // 단순 confirm. 같은 translation_key 의 다른 언어 row 는 그대로 유지.
+    if (!window.confirm("이 항목을 삭제하시겠어요?")) return;
+
     saveNotifier.notifySaving();
     const supabase = createClient();
     const { error } = await supabase
       .from("process_steps")
       .delete()
-      .eq("id", id);
+      .eq("id", step.id);
     if (error) {
       console.error("[admin/process] delete step failed:", error.message);
       saveNotifier.notifyError();
       return;
     }
-    setSteps((prev) => prev.filter((s) => s.id !== id));
+    setSteps((prev) => prev.filter((s) => s.id !== step.id));
     saveNotifier.notifySaved();
     router.refresh();
   }
@@ -211,7 +218,8 @@ export default function ProcessManager({
         type_key: "",
         title: "",
         order_num: max + 1,
-        language: "ko",
+        language: locale,
+        translation_key: crypto.randomUUID(),
       })
       .select()
       .single();
@@ -225,19 +233,23 @@ export default function ProcessManager({
     router.refresh();
   }
 
-  async function deleteType(id: string) {
+  async function deleteType(type: Live2DType) {
+    // 단순 confirm. 같은 translation_key 의 다른 언어 row 는 그대로 유지.
+    // live2d_type_items 는 부모 ON DELETE CASCADE 로 함께 정리.
+    if (!window.confirm("이 타입 카드를 삭제하시겠어요?")) return;
+
     saveNotifier.notifySaving();
     const supabase = createClient();
     const { error } = await supabase
       .from("live2d_types")
       .delete()
-      .eq("id", id);
+      .eq("id", type.id);
     if (error) {
       console.error("[admin/process] delete type failed:", error.message);
       saveNotifier.notifyError();
       return;
     }
-    setTypes((prev) => prev.filter((t) => t.id !== id));
+    setTypes((prev) => prev.filter((t) => t.id !== type.id));
     saveNotifier.notifySaved();
     router.refresh();
   }
@@ -435,10 +447,11 @@ export default function ProcessManager({
           ))}
         </div>
 
+        {/* 빈 상태는 각 Section 내부의 안내 메시지 + "+ 추가" 버튼이 처리. */}
         <ProcessStepsSection
           steps={visibleSteps}
           onAdd={addStep}
-          onDelete={deleteStep}
+          onDelete={(step) => deleteStep(step)}
           onUpdateLocal={updateStepLocal}
           onPersist={persistStep}
           onDragEnd={handleStepsDragEnd}
@@ -449,7 +462,7 @@ export default function ProcessManager({
             types={[...types].sort((a, b) => a.order_num - b.order_num)}
             typeItems={typeItems}
             onAdd={addType}
-            onDelete={deleteType}
+            onDelete={(type) => deleteType(type)}
             onUpdateLocal={updateTypeLocal}
             onPersist={persistType}
             onDragEnd={handleTypesDragEnd}
@@ -476,7 +489,7 @@ function ProcessStepsSection({
 }: {
   steps: ProcessStep[];
   onAdd: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (step: ProcessStep) => void;
   onUpdateLocal: (id: string, patch: Partial<ProcessStep>) => void;
   onPersist: (
     id: string,
@@ -512,7 +525,7 @@ function ProcessStepsSection({
                 key={step.id}
                 step={step}
                 stepIndex={idx + 1}
-                onDelete={() => onDelete(step.id)}
+                onDelete={() => onDelete(step)}
                 onUpdateLocal={(patch) => onUpdateLocal(step.id, patch)}
                 onPersist={(patch) => onPersist(step.id, patch)}
               />
@@ -660,7 +673,7 @@ function Live2DTypesSection({
   types: Live2DType[];
   typeItems: Live2DTypeItem[];
   onAdd: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (type: Live2DType) => void;
   onUpdateLocal: (id: string, patch: Partial<Live2DType>) => void;
   onPersist: (
     id: string,
@@ -708,7 +721,7 @@ function Live2DTypesSection({
                   key={type.id}
                   type={type}
                   items={items}
-                  onDelete={() => onDelete(type.id)}
+                  onDelete={() => onDelete(type)}
                   onUpdateLocal={(patch) => onUpdateLocal(type.id, patch)}
                   onPersist={(patch) => onPersist(type.id, patch)}
                   onAddItem={() => onAddItem(type.id)}

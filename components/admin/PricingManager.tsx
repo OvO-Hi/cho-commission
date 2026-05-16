@@ -26,7 +26,7 @@ import {
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
 import { createClient } from "@/lib/supabase/client";
-import type { CommissionCategory, PriceItem } from "@/types/database";
+import type { CommissionCategory, Language, PriceItem } from "@/types/database";
 
 const SAVE_DEBOUNCE_MS = 500;
 
@@ -37,6 +37,7 @@ const CATEGORIES: { id: CommissionCategory; label: string }[] = [
 
 type Props = {
   initial: PriceItem[];
+  locale: Language;
 };
 
 // 가격 행을 묶어 표시할 그룹 정의 (탭별로 다른 그룹).
@@ -53,7 +54,7 @@ type Group = {
   showApprox: boolean;
 };
 
-export default function PricingManager({ initial }: Props) {
+export default function PricingManager({ initial, locale }: Props) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] =
     useState<CommissionCategory>("live2d");
@@ -184,7 +185,8 @@ export default function PricingManager({ initial }: Props) {
         price: 0,
         description: null,
         is_approx: false,
-        language: "ko",
+        language: locale,
+        translation_key: crypto.randomUUID(),
         order_num: max + 1,
       })
       .select()
@@ -200,19 +202,24 @@ export default function PricingManager({ initial }: Props) {
     router.refresh();
   }
 
-  async function deleteItem(id: string) {
+  async function deleteItem(item: PriceItem) {
+    // 단순 confirm. 같은 translation_key 의 다른 언어 row 는 그대로 유지 — 어드민이
+    // 명시적으로 EN/JP 탭으로 옮겨 삭제해야 함. (AI 번역 도입 후엔 다이얼로그가
+    // 자동 처리 예정.)
+    if (!window.confirm("이 항목을 삭제하시겠어요?")) return;
+
     saveNotifier.notifySaving();
     const supabase = createClient();
     const { error } = await supabase
       .from("price_items")
       .delete()
-      .eq("id", id);
+      .eq("id", item.id);
     if (error) {
       console.error("[admin/pricing] delete failed:", error.message);
       saveNotifier.notifyError();
       return;
     }
-    setItems((prev) => prev.filter((i) => i.id !== id));
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
     saveNotifier.notifySaved();
     router.refresh();
   }
@@ -307,6 +314,8 @@ export default function PricingManager({ initial }: Props) {
           ))}
         </div>
 
+        {/* 그룹별로 빈 상태는 PricingGroup 내부의 "항목이 없어요" 메시지 + 추가 버튼이 처리.
+            EN/JP 탭에서도 동일 — 어드민이 "+ 항목 추가" 로 수동 입력. */}
         <div className="admin-pricing-groups">
           {groups.map((group) => {
             const groupItems = items
@@ -319,7 +328,7 @@ export default function PricingManager({ initial }: Props) {
                 group={group}
                 items={groupItems}
                 onAdd={() => addItem(group)}
-                onDelete={deleteItem}
+                onDelete={(item) => deleteItem(item)}
                 onUpdateLocal={updateItemLocal}
                 onPersist={persistItem}
                 onDragEnd={(e) => handleDragEnd(group, e)}
@@ -344,7 +353,7 @@ function PricingGroup({
   group: Group;
   items: PriceItem[];
   onAdd: () => void;
-  onDelete: (id: string) => void;
+  onDelete: (item: PriceItem) => void;
   onUpdateLocal: (
     id: string,
     patch: Partial<Omit<PriceItem, "id" | "created_at">>,
@@ -386,7 +395,7 @@ function PricingGroup({
                 showApprox={group.showApprox}
                 onUpdateLocal={(patch) => onUpdateLocal(item.id, patch)}
                 onPersist={(patch) => onPersist(item.id, patch)}
-                onDelete={() => onDelete(item.id)}
+                onDelete={() => onDelete(item)}
               />
             ))}
           </div>

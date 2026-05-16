@@ -169,6 +169,19 @@ export default function SlotsManager({ initialSlots, initialOpen }: Props) {
       .eq("language", "ko")
       .maybeSingle();
 
+    // insert 시 translation_key 필수 (마이그레이션 002). 이 매니저는 ko 로만 저장하고
+     // ko 의 같은 key 가 있으면 그 그룹을, 없으면 새 uuid 부여 — SettingsManager 와 동일.
+    let translationKey: string | null = null;
+    if (!existing) {
+      const { data: koRow } = await supabase
+        .from("settings")
+        .select("translation_key")
+        .eq("key", key)
+        .eq("language", "ko")
+        .maybeSingle();
+      translationKey = koRow?.translation_key ?? crypto.randomUUID();
+    }
+
     const settingResult = existing
       ? await supabase
           .from("settings")
@@ -176,7 +189,12 @@ export default function SlotsManager({ initialSlots, initialOpen }: Props) {
           .eq("id", existing.id)
       : await supabase
           .from("settings")
-          .insert({ key, value: String(next), language: "ko" });
+          .insert({
+            key,
+            value: String(next),
+            language: "ko",
+            translation_key: translationKey!,
+          });
 
     // 2. 닫는 경우에만 모집중 슬롯 일괄 삭제.
     //    DELETE FROM slots WHERE category = ? AND is_filled = false

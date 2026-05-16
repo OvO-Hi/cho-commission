@@ -13,6 +13,7 @@ import type {
   CopyrightColumn,
   CopyrightRule,
   CopyrightRuleValue,
+  Language,
   Notice,
   NoticeSection,
 } from "@/types/database";
@@ -24,6 +25,7 @@ type Props = {
   initialRules: CopyrightRule[];
   initialColumns: CopyrightColumn[];
   initialValues: CopyrightRuleValue[];
+  locale: Language;
 };
 
 const RICH_SECTIONS: { key: NoticeSection; label: string }[] = [
@@ -37,6 +39,7 @@ export default function NoticesManager({
   initialRules,
   initialColumns,
   initialValues,
+  locale,
 }: Props) {
   const router = useRouter();
 
@@ -84,6 +87,7 @@ export default function NoticesManager({
   );
 
   // 섹션별 onSave: 기존 row 가 있으면 UPDATE, 없으면 INSERT 후 id 보존.
+  // INSERT 시 translation_key 는 같은 section 의 ko row 그룹을 따라가고, 없으면 새로 부여.
   function makeSectionSave(section: NoticeSection) {
     return async (html: string) => {
       const supabase = createClient();
@@ -96,6 +100,17 @@ export default function NoticesManager({
           .eq("id", existingId);
         if (error) throw new Error(error.message);
       } else {
+        // 같은 (category, section) 의 ko row 의 translation_key 를 따라가서
+        // ko 와 같은 번역 그룹으로 묶는다.
+        const { data: koRow } = await supabase
+          .from("notices")
+          .select("translation_key")
+          .eq("category", "common")
+          .eq("section", section)
+          .eq("language", "ko")
+          .maybeSingle();
+        const translationKey = koRow?.translation_key ?? crypto.randomUUID();
+
         const { data, error } = await supabase
           .from("notices")
           .insert({
@@ -104,7 +119,8 @@ export default function NoticesManager({
             title: "",
             content: html,
             order_num: 0,
-            language: "ko",
+            language: locale,
+            translation_key: translationKey,
           })
           .select()
           .single();
@@ -136,7 +152,7 @@ export default function NoticesManager({
         </div>
 
         <div className="admin-notices-sections">
-          {/* 리치 텍스트 3섹션 */}
+          {/* 리치 텍스트 3섹션. 비어 있는 섹션은 RichTextEditor 가 빈 상태로 보여줌. */}
           {RICH_SECTIONS.map(({ key, label }) => {
             const initialContent = initialMap.get(key)?.content ?? "";
             return (
@@ -159,6 +175,7 @@ export default function NoticesManager({
               initialRules={initialRules}
               initialColumns={initialColumns}
               initialValues={initialValues}
+              locale={locale}
             />
           </section>
         </div>

@@ -4,7 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import LanguageToggle from "@/components/LanguageToggle";
 import { createClient } from "@/lib/supabase/client";
+import type { Language } from "@/types/database";
 
 type NavItem = { href: string; label: string };
 
@@ -19,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard/settings", label: "사이트 설정" },
 ];
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ locale }: { locale: Language }) {
   const router = useRouter();
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -35,7 +37,10 @@ export default function AdminSidebar() {
 
   return (
     <aside className="admin-sidebar">
-      <div className="admin-sidebar-title">Admin</div>
+      <div className="admin-sidebar-title">
+        <span>Admin</span>
+        <LanguageToggle current={locale} />
+      </div>
 
       <nav className="admin-nav">
         {NAV_ITEMS.map((item) => {

@@ -9,6 +9,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import type { Language } from "@/types/database";
 
 const LOCALE_COOKIE = "locale";
@@ -28,4 +29,8 @@ export async function setLocaleCookie(next: Language): Promise<void> {
     maxAge: ONE_YEAR_SECONDS,
     sameSite: "lax",
   });
+  // 클라의 router.refresh() 만으로는 layout (예: AdminDashboardLayout) 의 RSC 캐시
+  // 가 안 깨지는 경우가 있어 stale locale prop 이 manager 까지 전달되는 버그를 봤다.
+  // 서버에서 명시적으로 layout 트리 전체를 무효화.
+  revalidatePath("/", "layout");
 }
