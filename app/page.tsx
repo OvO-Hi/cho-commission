@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import AdminEntry from "@/components/AdminEntry";
+import LanguageToggle from "@/components/LanguageToggle";
 import LogoWithFallback from "@/components/LogoWithFallback";
 import { SETTING_KEYS } from "@/lib/admin/setting-keys";
+import { fetchListWithFallback } from "@/lib/i18n/fetchWithFallback";
+import { getCurrentLocale } from "@/lib/i18n/locale";
 import { createClient } from "@/lib/supabase/server";
 
 // 어드민 사이트 설정 변경이 즉시 반영되도록 캐싱 비활성화.
@@ -17,17 +20,24 @@ const DEFAULTS = {
 
 export default async function Home() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
 
-  const [settingsRes, bannerRes] = await Promise.all([
-    supabase
-      .from("settings")
-      .select("key,value")
-      .in("key", [
-        SETTING_KEYS.intro,
-        SETTING_KEYS.snsX,
-        SETTING_KEYS.snsEmail,
-      ])
-      .eq("language", "ko"),
+  const [settingsData, bannerRes] = await Promise.all([
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("settings")
+          .select("key,value")
+          .in("key", [
+            SETTING_KEYS.intro,
+            SETTING_KEYS.snsX,
+            SETTING_KEYS.snsEmail,
+          ])
+          .eq("language", lang);
+        return res.data ?? [];
+      },
+      locale,
+    ),
     supabase
       .from("banners")
       .select("image_url")
@@ -37,9 +47,7 @@ export default async function Home() {
       .maybeSingle(),
   ]);
 
-  const map = new Map(
-    (settingsRes.data ?? []).map((s) => [s.key, s.value]),
-  );
+  const map = new Map(settingsData.map((s) => [s.key, s.value]));
   // 빈 문자열도 폴백으로 처리해 화면이 비어 보이지 않도록 합니다.
   const introText = map.get(SETTING_KEYS.intro)?.trim() || DEFAULTS.intro;
   const snsX = map.get(SETTING_KEYS.snsX)?.trim() || DEFAULTS.snsX;
@@ -52,14 +60,7 @@ export default async function Home() {
     <main className="site-shell">
       <header className="top-bar">
         <div className="top-bar-inner">
-          <details className="lang-menu">
-            <summary className="lang-trigger">KO ∨</summary>
-            <ul className="lang-dropdown">
-              <li>KO</li>
-              <li>EN</li>
-              <li>JP</li>
-            </ul>
-          </details>
+          <LanguageToggle current={locale} />
         </div>
       </header>
 

@@ -3,11 +3,17 @@ import Link from "next/link";
 import BackToTopButton from "@/components/BackToTopButton";
 import CommissionFormCTA from "@/components/CommissionFormCTA";
 import IllustCommissionForm from "@/components/IllustCommissionForm";
+import LanguageToggle from "@/components/LanguageToggle";
 import NoticeAgreementGate from "@/components/NoticeAgreementGate";
 import ProcessTimeline from "@/components/ProcessTimeline";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollReveal from "@/components/ScrollReveal";
 import { createClient } from "@/lib/supabase/server";
+import {
+  fetchListWithFallback,
+  fetchSingleWithFallback,
+} from "@/lib/i18n/fetchWithFallback";
+import { getCurrentLocale } from "@/lib/i18n/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -32,36 +38,51 @@ const STATUS_MESSAGE: Record<Exclude<FormStatus, "open">, string> = {
 
 export default async function IllustPage() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
 
-  const [slotsRes, openRes, pricingRes, stepsRes] = await Promise.all([
+  const [slotsRes, openSetting, priceItems, processSteps] = await Promise.all([
     supabase
       .from("slots")
       .select("is_filled,slot_number")
       .eq("category", "illust")
       .order("slot_number", { ascending: true }),
-    supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "illust_open")
-      .eq("language", "ko")
-      .maybeSingle(),
-    supabase
-      .from("price_items")
-      .select("*")
-      .eq("category", "illust")
-      .eq("language", "ko")
-      .order("order_num", { ascending: true }),
-    supabase
-      .from("process_steps")
-      .select("*")
-      .eq("category", "illust")
-      .eq("language", "ko")
-      .order("step_num", { ascending: true }),
+    fetchSingleWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("settings")
+          .select("value")
+          .eq("key", "illust_open")
+          .eq("language", lang)
+          .maybeSingle();
+        return res.data ?? null;
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("price_items")
+          .select("*")
+          .eq("category", "illust")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("process_steps")
+          .select("*")
+          .eq("category", "illust")
+          .eq("language", lang)
+          .order("step_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
   ]);
-
-  const processSteps = stepsRes.data ?? [];
-
-  const priceItems = pricingRes.data ?? [];
   // 메인은 subcategory 별로 그룹화 (broadcast / commercial). 추가금은 공통.
   const broadcastMains = priceItems.filter(
     (i) => !i.is_addon && i.subcategory === "broadcast",
@@ -83,7 +104,7 @@ export default async function IllustPage() {
   ].filter((t) => t.mains.length > 0);
 
   const slotState = (slotsRes.data ?? []).map((s) => s.is_filled);
-  const isOpen = openRes.data?.value !== "false";
+  const isOpen = openSetting?.value !== "false";
 
   const emptyCount = slotState.filter((v) => !v).length;
   const noSlots = slotState.length === 0;
@@ -108,6 +129,7 @@ export default async function IllustPage() {
           <Link href="/" className="l2d-back" aria-label="메인으로 돌아가기">
             ← 메인으로
           </Link>
+          <LanguageToggle current={locale} />
         </div>
 
         <header className="l2d-hero">

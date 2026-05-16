@@ -276,20 +276,18 @@ a {
 }
 
 .lang-dropdown {
-  /* 부모 레이아웃 영향에서 완전히 분리하기 위해 fixed를 사용합니다. */
-  position: fixed;
-  /* 뷰포트 중앙축 기준으로 드롭다운을 배치합니다. */
-  left: 50%;
-  /* 상단 바(64px) 바로 아래에 자연스럽게 나타나도록 top을 고정합니다. */
-  top: 56px;
-  transform: translateX(-50%);
+  /* 부모 .lang-menu(position: relative) 기준 absolute.
+     4페이지(메인/notice/live2d/illust)에서 동일하게 동작.
+     메인 페이지는 top-bar-inner 가 가운데 정렬이라 드롭다운도 가운데에 뜨고,
+     서브 페이지들은 topbar 우측에 두므로 드롭다운이 우측 정렬됨. */
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
   z-index: 20;
   width: 88px;
   margin: 0;
-  padding: 8px;
+  padding: 6px;
   list-style: none;
-  /* 요청사항에 맞춰 드롭다운 경계선을 제거하고,
-     흰 배경 + 약한 그림자만으로 가벼운 레이어감을 만듭니다. */
   border: none;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.98);
@@ -297,14 +295,31 @@ a {
 }
 
 .lang-dropdown li {
-  border-radius: 10px;
-  text-align: center;
-  font-size: 13px;
-  padding: 6px 0;
+  list-style: none;
+  padding: 0;
 }
 
-.lang-dropdown li:hover {
-  background: var(--soft-mint);
+.lang-dropdown-item {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  padding: 6px 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.lang-dropdown-item:hover {
+  background: rgba(158, 225, 122, 0.12);
+}
+
+.lang-dropdown-item.is-current {
+  color: var(--mint-point);
+  font-weight: 600;
 }
 
 .main-split {
@@ -549,8 +564,9 @@ a {
 .notice-topbar {
   display: flex;
   align-items: center;
-  /* 메인으로 버튼은 좌측 상단에 단독 배치합니다. */
-  justify-content: flex-start;
+  /* 좌측: ← 메인으로, 우측: LanguageToggle. */
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .notice-back {
@@ -877,7 +893,9 @@ a {
 .l2d-topbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  /* 좌측: ← 메인으로, 우측: LanguageToggle. */
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .l2d-back {

@@ -1,10 +1,12 @@
 import Link from "next/link";
 
 import BackToTopButton from "@/components/BackToTopButton";
+import LanguageToggle from "@/components/LanguageToggle";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollReveal from "@/components/ScrollReveal";
 import { sanitizeRich } from "@/lib/utils/sanitize";
 import { createClient } from "@/lib/supabase/server";
+import { fetchListWithFallback } from "@/lib/i18n/fetchWithFallback";
 import { getCurrentLocale } from "@/lib/i18n/locale";
 import type {
   CopyrightColumn,
@@ -34,13 +36,19 @@ export default async function NoticePage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
 
-  const [noticesRes, rulesRes, columnsRes, valuesRes] = await Promise.all([
-    supabase
-      .from("notices")
-      .select("*")
-      .eq("category", "common")
-      .eq("language", "ko")
-      .order("order_num", { ascending: true }),
+  const [noticesData, rulesRes, columnsRes, valuesRes] = await Promise.all([
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("notices")
+          .select("*")
+          .eq("category", "common")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
     supabase
       .from("copyright_rules")
       .select("*")
@@ -52,9 +60,6 @@ export default async function NoticePage() {
     supabase.from("copyright_rule_values").select("*"),
   ]);
 
-  if (noticesRes.error) {
-    console.error("[notice] failed to fetch notices:", noticesRes.error.message);
-  }
   if (rulesRes.error) {
     console.error("[notice] failed to fetch rules:", rulesRes.error.message);
   }
@@ -67,7 +72,7 @@ export default async function NoticePage() {
 
   // 1섹션 = 1행 정책. 같은 섹션의 첫 번째 row 만 사용.
   const sectionMap = new Map<string, string>();
-  for (const n of noticesRes.data ?? []) {
+  for (const n of noticesData) {
     if (!sectionMap.has(n.section)) sectionMap.set(n.section, n.content);
   }
 
@@ -84,6 +89,7 @@ export default async function NoticePage() {
           <Link href="/" className="notice-back" aria-label="메인으로 돌아가기">
             ← 메인으로
           </Link>
+          <LanguageToggle current={locale} />
         </div>
 
         <header className="notice-hero">

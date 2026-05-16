@@ -2,12 +2,18 @@ import Link from "next/link";
 
 import BackToTopButton from "@/components/BackToTopButton";
 import CommissionFormCTA from "@/components/CommissionFormCTA";
+import LanguageToggle from "@/components/LanguageToggle";
 import Live2DCommissionForm from "@/components/Live2DCommissionForm";
 import NoticeAgreementGate from "@/components/NoticeAgreementGate";
 import ProcessTimeline from "@/components/ProcessTimeline";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollReveal from "@/components/ScrollReveal";
 import { createClient } from "@/lib/supabase/server";
+import {
+  fetchListWithFallback,
+  fetchSingleWithFallback,
+} from "@/lib/i18n/fetchWithFallback";
+import { getCurrentLocale } from "@/lib/i18n/locale";
 
 // 어드민의 슬롯/오픈 설정 변경이 즉시 반영되도록 캐싱 비활성화.
 export const dynamic = "force-dynamic";
@@ -29,13 +35,14 @@ const STATUS_MESSAGE: Record<Exclude<FormStatus, "open">, string> = {
 
 export default async function Live2DPage() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
 
   const [
     slotsRes,
-    openRes,
-    pricingRes,
-    stepsRes,
-    typesRes,
+    openSetting,
+    priceItems,
+    processSteps,
+    types,
     typeItemsRes,
   ] = await Promise.all([
     supabase
@@ -43,50 +50,73 @@ export default async function Live2DPage() {
       .select("is_filled,slot_number")
       .eq("category", "live2d")
       .order("slot_number", { ascending: true }),
-    supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "live2d_open")
-      .eq("language", "ko")
-      .maybeSingle(),
-    supabase
-      .from("price_items")
-      .select("*")
-      .eq("category", "live2d")
-      .eq("language", "ko")
-      .order("order_num", { ascending: true }),
-    supabase
-      .from("process_steps")
-      .select("*")
-      .eq("category", "live2d")
-      .eq("language", "ko")
-      .order("step_num", { ascending: true }),
-    supabase
-      .from("live2d_types")
-      .select("*")
-      .eq("language", "ko")
-      .order("order_num", { ascending: true }),
+    fetchSingleWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("settings")
+          .select("value")
+          .eq("key", "live2d_open")
+          .eq("language", lang)
+          .maybeSingle();
+        return res.data ?? null;
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("price_items")
+          .select("*")
+          .eq("category", "live2d")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("process_steps")
+          .select("*")
+          .eq("category", "live2d")
+          .eq("language", lang)
+          .order("step_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("live2d_types")
+          .select("*")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    // live2d_type_items 는 language 컬럼 없음 — type_id 로 부모(types)에 종속이라
+      // locale 별 분리 불필요. 그대로 fetch.
     supabase
       .from("live2d_type_items")
       .select("*")
       .order("order_num", { ascending: true }),
   ]);
 
-  const processSteps = stepsRes.data ?? [];
   const allTypeItems = typeItemsRes.data ?? [];
   // 각 type 에 자식 items 를 붙여 한 객체로 만들어 렌더에 전달.
-  const live2dTypes = (typesRes.data ?? []).map((t) => ({
+  const live2dTypes = types.map((t) => ({
     ...t,
     items: allTypeItems.filter((item) => item.type_id === t.id),
   }));
-
-  const priceItems = pricingRes.data ?? [];
   const liveMains = priceItems.filter((i) => !i.is_addon);
   const liveAddons = priceItems.filter((i) => i.is_addon);
 
   const slotState = (slotsRes.data ?? []).map((s) => s.is_filled);
   // 설정이 없으면 'open' 으로 간주(기본 열림). 명시적으로 'false' 일 때만 닫힘.
-  const isOpen = openRes.data?.value !== "false";
+  const isOpen = openSetting?.value !== "false";
 
   const emptyCount = slotState.filter((v) => !v).length;
   const noSlots = slotState.length === 0;
@@ -109,6 +139,7 @@ export default async function Live2DPage() {
           <Link href="/" className="l2d-back" aria-label="메인으로 돌아가기">
             ← 메인으로
           </Link>
+          <LanguageToggle current={locale} />
         </div>
 
         <header className="l2d-hero">
