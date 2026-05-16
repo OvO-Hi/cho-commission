@@ -82,8 +82,6 @@ export default async function Live2DPage() {
   const priceItems = pricingRes.data ?? [];
   const liveMains = priceItems.filter((i) => !i.is_addon);
   const liveAddons = priceItems.filter((i) => i.is_addon);
-  // 시각적 강조: 가장 비싼 메인 카드를 emphasized 로 표시.
-  const maxMainPrice = liveMains.reduce((m, i) => Math.max(m, i.price), 0);
 
   const slotState = (slotsRes.data ?? []).map((s) => s.is_filled);
   // 설정이 없으면 'open' 으로 간주(기본 열림). 명시적으로 'false' 일 때만 닫힘.
@@ -198,14 +196,10 @@ export default async function Live2DPage() {
             <>
               <div className="l2d-grid-2">
                 {liveMains.map((main) => {
-                  const emphasized =
-                    liveMains.length > 1 && main.price === maxMainPrice;
                   return (
                     <article
                       key={main.id}
-                      className={`l2d-card l2d-pricecard${
-                        emphasized ? " l2d-pricecard-accent" : ""
-                      }`}
+                      className="l2d-card l2d-pricecard"
                     >
                       <h3 className="l2d-pricecard-title">{main.item_name}</h3>
                       <div className="l2d-pricecard-header">

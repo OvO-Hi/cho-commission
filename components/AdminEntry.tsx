@@ -17,7 +17,7 @@ export default function AdminEntry() {
         onClick={() => setOpen(true)}
         aria-label="관리자 로그인"
       >
-        Admin
+        <span aria-hidden="true">🐸</span>
       </button>
       <AdminLoginModal isOpen={open} onClose={() => setOpen(false)} />
     </>

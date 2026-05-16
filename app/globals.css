@@ -1134,12 +1134,6 @@ a {
   gap: 18px;
 }
 
-.l2d-pricecard-accent {
-  /* 두 번째 카드(리깅) 강조: yellow-accent 보더 + 약간 더 또렷한 배경. */
-  border: 2px solid var(--yellow-accent);
-  background: rgba(255, 255, 255, 0.85);
-}
-
 .l2d-pricecard-header {
   display: flex;
   flex-direction: column;
@@ -1987,25 +1981,25 @@ a {
    - 톤은 메인 사이트와 분리해 흰색 베이스 + 연한 그라디언트로 단정하게.
    ───────────────────────────────────────────────────────────── */
 
-/* 메인 페이지 우측 하단 어드민 진입 버튼 */
+/* 메인 페이지 우측 하단 어드민 진입 버튼 (🐸) */
 .admin-entry-btn {
   position: fixed;
   bottom: 24px;
   right: 24px;
   background: transparent;
   border: none;
-  color: #ccc;
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
   cursor: pointer;
   padding: 6px 10px;
   z-index: 30;
-  transition: color 0.2s ease;
+  font-size: 1.5rem;
+  line-height: 1;
+  opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 .admin-entry-btn:hover {
-  color: #888;
+  opacity: 1;
+  transform: scale(1.15) rotate(-8deg);
 }
 
 /* 로그인 모달 */
@@ -2100,6 +2094,44 @@ a {
   outline: none;
   border-color: var(--mint-point);
   box-shadow: 0 0 0 3px rgba(158, 225, 122, 0.18);
+}
+
+/* 비밀번호 input + 눈 토글 버튼: input 우측 끝에 absolute 로 얹는다. */
+.admin-form-password-wrapper {
+  position: relative;
+}
+
+.admin-form-input-password {
+  padding-right: 44px;
+}
+
+.admin-form-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.admin-form-password-toggle:hover {
+  color: #555;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.admin-form-password-toggle:focus-visible {
+  outline: none;
+  color: var(--mint-point);
+  box-shadow: 0 0 0 2px rgba(158, 225, 122, 0.35);
 }
 
 .admin-form-error {
@@ -3287,6 +3319,9 @@ a {
 }
 
 .admin-copyright-label-col {
+  /* 동적 열이 늘어날 때 라벨 칸이 강제로 압축되지 않도록 width 대신 min-width.
+     body td 에도 같은 클래스를 붙여 헤더/행이 동일 규약을 갖게 한다. */
+  min-width: 140px;
   width: 160px;
 }
 
@@ -3319,6 +3354,13 @@ a {
   /* 일반 admin-form-input 보다 한 단계 작게 */
   padding: 6px 10px;
   font-size: 0.88rem;
+  /* 컬럼이 많아도 글자가 잘리지 않게 input 자체에 너비 하한.
+     width: 100% 로 td 를 가득 채우고, min-width 로 td 가 짜부될 때도 글자 영역 확보. */
+  width: 100%;
+  min-width: 110px;
+  /* placeholder/회색과 혼동되지 않게 본문 톤 명시. admin-form-input 의 color 와
+     동일 토큰이지만, 우선순위 상속 사고를 막기 위해 다시 선언. */
+  color: var(--text-main);
 }
 
 .admin-copyright-check-cell {
@@ -3353,6 +3395,150 @@ a {
 }
 
 .admin-copyright-add:hover:not(:disabled) {
+  border-color: var(--mint-point);
+  color: var(--mint-point);
+  background: rgba(158, 225, 122, 0.06);
+}
+
+/* 동적 열 확장 — 가로 스크롤 컨테이너. 열이 많아져도 카드 밖으로 깨지지 않게. */
+.admin-copyright-scroll {
+  overflow-x: auto;
+}
+
+/* 열 헤더 셀 — 입력 + 액션 버튼들이 함께 있는 컴팩트 영역.
+   position: relative 로 둬야 팝오버가 헤더 기준으로 떠 있을 수 있다. */
+.admin-copyright-col-header {
+  position: relative;
+  min-width: 130px;
+  padding: 6px 8px !important;
+}
+
+.admin-copyright-col-header-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-copyright-col-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: #333;
+  font-weight: 500;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-copyright-col-input:hover:not(:focus) {
+  border-color: #eee;
+}
+
+.admin-copyright-col-input:focus {
+  outline: none;
+  border-color: var(--mint-point);
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(158, 225, 122, 0.18);
+}
+
+.admin-copyright-col-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.admin-copyright-col-i18n,
+.admin-copyright-col-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.admin-copyright-col-i18n:hover:not(:disabled),
+.admin-copyright-col-delete:hover:not(:disabled) {
+  color: #333;
+  background: #f3f3f3;
+}
+
+.admin-copyright-col-delete:hover:not(:disabled) {
+  color: #d44;
+}
+
+/* 다국어 라벨 팝오버 — 헤더 셀 기준 absolute. 좁은 화면에서는 우측으로
+   살짝 당겨서 카드 밖으로 새지 않게. */
+.admin-copyright-col-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: 240px;
+  background: #fff;
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-copyright-col-popover-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-copyright-col-popover-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #777;
+  letter-spacing: 0.04em;
+}
+
+.admin-copyright-col-popover-hint {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #aaa;
+  line-height: 1.4;
+}
+
+/* + 열 추가 버튼 셀 — 헤더에서는 버튼이 보이고, 행에서는 빈 셀로 자리만 유지. */
+.admin-copyright-addcol-col {
+  width: 96px;
+  vertical-align: middle;
+}
+
+.admin-copyright-addcol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px dashed #c0c0c0;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: #666;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.admin-copyright-addcol:hover:not(:disabled) {
   border-color: var(--mint-point);
   color: var(--mint-point);
   background: rgba(158, 225, 122, 0.06);

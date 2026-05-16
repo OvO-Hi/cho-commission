@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,6 +15,7 @@ export default function AdminLoginModal({ isOpen, onClose }: Props) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -37,11 +39,12 @@ export default function AdminLoginModal({ isOpen, onClose }: Props) {
     };
   }, [isOpen]);
 
-  // 모달 닫힐 때 입력값/에러 리셋.
+  // 모달 닫힐 때 입력값/에러 리셋. showPassword 도 보안상 초기화.
   useEffect(() => {
     if (!isOpen) {
       setEmail("");
       setPassword("");
+      setShowPassword(false);
       setError(null);
       setSubmitting(false);
     }
@@ -119,15 +122,31 @@ export default function AdminLoginModal({ isOpen, onClose }: Props) {
             <label htmlFor="admin-password" className="admin-form-label">
               비밀번호
             </label>
-            <input
-              id="admin-password"
-              type="password"
-              className="admin-form-input"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className="admin-form-password-wrapper">
+              <input
+                id="admin-password"
+                type={showPassword ? "text" : "password"}
+                className="admin-form-input admin-form-input-password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="admin-form-password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                aria-pressed={showPassword}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff size={18} aria-hidden="true" />
+                ) : (
+                  <Eye size={18} aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           {error && <p className="admin-form-error">{error}</p>}

@@ -4,7 +4,14 @@ import BackToTopButton from "@/components/BackToTopButton";
 import ScrollProgress from "@/components/ScrollProgress";
 import { sanitizeRich } from "@/lib/utils/sanitize";
 import { createClient } from "@/lib/supabase/server";
-import type { CopyrightRule, NoticeSection } from "@/types/database";
+import { getCurrentLocale } from "@/lib/i18n/locale";
+import type {
+  CopyrightColumn,
+  CopyrightRule,
+  CopyrightRuleValue,
+  Language,
+  NoticeSection,
+} from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -15,26 +22,18 @@ const RICH_SECTIONS: { key: NoticeSection; title: string }[] = [
   { key: "refund", title: "환불 안내" },
 ];
 
-const COPYRIGHT_HEADERS: {
-  key: keyof Pick<
-    CopyrightRule,
-    "allow_personal" | "allow_sns" | "allow_broadcast" | "allow_youtube" | "allow_goods"
-  >;
-  label: string;
-}[] = [
-  { key: "allow_personal", label: "개인소장" },
-  { key: "allow_sns", label: "SNS 업로드" },
-  { key: "allow_broadcast", label: "방송 사용" },
-  { key: "allow_youtube", label: "유튜브" },
-  { key: "allow_goods", label: "굿즈 및 판매" },
-];
-
-// sanitize 옵션은 lib/utils/sanitize 의 공용 RICH_SANITIZE_OPTIONS 재사용.
+// 현재 노출 언어에서 열 라벨 추출. label_xx 가 NULL/빈문자열이면 label_ko 로 fallback.
+function pickColumnLabel(column: CopyrightColumn, locale: Language): string {
+  if (locale === "en") return column.label_en?.trim() || column.label_ko;
+  if (locale === "jp") return column.label_jp?.trim() || column.label_ko;
+  return column.label_ko;
+}
 
 export default async function NoticePage() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
 
-  const [noticesRes, rulesRes] = await Promise.all([
+  const [noticesRes, rulesRes, columnsRes, valuesRes] = await Promise.all([
     supabase
       .from("notices")
       .select("*")
@@ -45,6 +44,11 @@ export default async function NoticePage() {
       .from("copyright_rules")
       .select("*")
       .order("order_num", { ascending: true }),
+    supabase
+      .from("copyright_columns")
+      .select("*")
+      .order("order_num", { ascending: true }),
+    supabase.from("copyright_rule_values").select("*"),
   ]);
 
   if (noticesRes.error) {
@@ -52,6 +56,12 @@ export default async function NoticePage() {
   }
   if (rulesRes.error) {
     console.error("[notice] failed to fetch rules:", rulesRes.error.message);
+  }
+  if (columnsRes.error) {
+    console.error("[notice] failed to fetch columns:", columnsRes.error.message);
+  }
+  if (valuesRes.error) {
+    console.error("[notice] failed to fetch values:", valuesRes.error.message);
   }
 
   // 1섹션 = 1행 정책. 같은 섹션의 첫 번째 row 만 사용.
@@ -61,6 +71,8 @@ export default async function NoticePage() {
   }
 
   const rules = rulesRes.data ?? [];
+  const columns = columnsRes.data ?? [];
+  const values = valuesRes.data ?? [];
 
   return (
     <main className="notice-shell">
@@ -89,7 +101,12 @@ export default async function NoticePage() {
               <h2 className="notice-section-title">{title}</h2>
               <div className="notice-card">
                 {isGuide ? (
-                  <CopyrightTable rules={rules} />
+                  <CopyrightTable
+                    rules={rules}
+                    columns={columns}
+                    values={values}
+                    locale={locale}
+                  />
                 ) : html.trim() ? (
                   <div
                     className="notice-rich"
@@ -109,18 +126,36 @@ export default async function NoticePage() {
   );
 }
 
-function CopyrightTable({ rules }: { rules: CopyrightRule[] }) {
-  if (rules.length === 0) {
+function CopyrightTable({
+  rules,
+  columns,
+  values,
+  locale,
+}: {
+  rules: CopyrightRule[];
+  columns: CopyrightColumn[];
+  values: CopyrightRuleValue[];
+  locale: Language;
+}) {
+  if (rules.length === 0 || columns.length === 0) {
     return <p className="notice-empty">준비 중입니다.</p>;
   }
+
+  // (rule_id, column_id) → checked. 미존재 = false (열을 어드민이 새로 추가했지만
+  // 해당 row 의 셀이 아직 생성되지 않은 경우의 안전 디폴트).
+  const valueMap = new Map<string, boolean>();
+  for (const v of values) {
+    valueMap.set(`${v.rule_id}:${v.column_id}`, v.checked);
+  }
+
   return (
     <div className="notice-table-wrap">
       <table className="notice-table">
         <thead>
           <tr>
             <th aria-hidden />
-            {COPYRIGHT_HEADERS.map((h) => (
-              <th key={h.key}>{h.label}</th>
+            {columns.map((c) => (
+              <th key={c.id}>{pickColumnLabel(c, locale)}</th>
             ))}
           </tr>
         </thead>
@@ -128,10 +163,10 @@ function CopyrightTable({ rules }: { rules: CopyrightRule[] }) {
           {rules.map((rule) => (
             <tr key={rule.id}>
               <th scope="row">{rule.label}</th>
-              {COPYRIGHT_HEADERS.map((h) => {
-                const allowed = Boolean(rule[h.key]);
+              {columns.map((c) => {
+                const allowed = valueMap.get(`${rule.id}:${c.id}`) ?? false;
                 return (
-                  <td key={h.key}>
+                  <td key={c.id}>
                     {allowed ? (
                       <span
                         className="notice-mark notice-mark-o"

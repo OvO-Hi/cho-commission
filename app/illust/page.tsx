@@ -70,17 +70,14 @@ export default async function IllustPage() {
   );
   const illustAddons = priceItems.filter((i) => i.is_addon);
 
-  // commercial 카드를 강조 (기존 디자인 유지).
   const tierCards = [
     {
       key: "broadcast" as const,
       mains: broadcastMains,
-      emphasized: false,
     },
     {
       key: "commercial" as const,
       mains: commercialMains,
-      emphasized: true,
     },
   ].filter((t) => t.mains.length > 0);
 
@@ -170,9 +167,7 @@ export default async function IllustPage() {
               {tierCards.map((tier) => (
                 <article
                   key={tier.key}
-                  className={`l2d-card l2d-pricecard${
-                    tier.emphasized ? " l2d-pricecard-accent" : ""
-                  }`}
+                  className="l2d-card l2d-pricecard"
                 >
                   <h3 className="l2d-pricecard-title">
                     {SUBCATEGORY_LABEL[tier.key]}

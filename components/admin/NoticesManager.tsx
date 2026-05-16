@@ -9,13 +9,21 @@ import {
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
 import { createClient } from "@/lib/supabase/client";
-import type { CopyrightRule, Notice, NoticeSection } from "@/types/database";
+import type {
+  CopyrightColumn,
+  CopyrightRule,
+  CopyrightRuleValue,
+  Notice,
+  NoticeSection,
+} from "@/types/database";
 
 import CopyrightRulesEditor from "./notices/CopyrightRulesEditor";
 
 type Props = {
   initialNotices: Notice[];
   initialRules: CopyrightRule[];
+  initialColumns: CopyrightColumn[];
+  initialValues: CopyrightRuleValue[];
 };
 
 const RICH_SECTIONS: { key: NoticeSection; label: string }[] = [
@@ -27,6 +35,8 @@ const RICH_SECTIONS: { key: NoticeSection; label: string }[] = [
 export default function NoticesManager({
   initialNotices,
   initialRules,
+  initialColumns,
+  initialValues,
 }: Props) {
   const router = useRouter();
 
@@ -145,7 +155,11 @@ export default function NoticesManager({
           {/* 저작권 범위 (별도 테이블 기반 표 편집기) */}
           <section className="admin-notices-section">
             <h2 className="admin-notices-section-title">저작권 범위</h2>
-            <CopyrightRulesEditor initial={initialRules} />
+            <CopyrightRulesEditor
+              initialRules={initialRules}
+              initialColumns={initialColumns}
+              initialValues={initialValues}
+            />
           </section>
         </div>
       </div>

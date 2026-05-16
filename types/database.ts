@@ -165,17 +165,47 @@ export type Live2DTypeItem = {
 };
 
 // 저작권 범위 표 — Notice 페이지의 권한 매트릭스. id 는 정수 자동증가.
+//
+// 열 구조는 마이그레이션 001 로 정규화되어 copyright_columns / copyright_rule_values
+// 로 분리됐다. 기존 boolean 컬럼들은 deprecated — 새 코드는 읽지/쓰지 않는다.
+// (UI 전환 안정화 후 별도 PR 에서 DROP)
 export type CopyrightRule = {
   id: number;
   label: string;
+  /** @deprecated 마이그레이션 001 이후 copyright_rule_values 사용. 컬럼은 호환용으로만 잔존. */
   allow_personal: boolean;
+  /** @deprecated */
   allow_sns: boolean;
+  /** @deprecated */
   allow_broadcast: boolean;
+  /** @deprecated */
   allow_youtube: boolean;
+  /** @deprecated */
   allow_goods: boolean;
   order_num: number;
   created_at: string;
   updated_at: string;
+};
+
+// 저작권 범위 표의 열 — 한 row 가 한 열. label 은 ko 가 필수, en/jp 는 nullable.
+// column_key 는 마이그레이션으로 시드된 기존 5개 열을 추적하기 위한 식별자.
+// 어드민이 새로 추가하는 열은 column_key 가 null.
+export type CopyrightColumn = {
+  id: number;
+  column_key: string | null;
+  label_ko: string;
+  label_en: string | null;
+  label_jp: string | null;
+  order_num: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// 셀 값. (rule_id, column_id) 가 PK 라 ON DELETE CASCADE 로 자식이 자동 정리됨.
+export type CopyrightRuleValue = {
+  rule_id: number;
+  column_id: number;
+  checked: boolean;
 };
 
 export type SampleImage = {
@@ -209,6 +239,15 @@ type SettingUpdate = Partial<Omit<Setting, "id">>;
 type SampleImageInsert = Omit<SampleImage, "id" | "created_at"> &
   Partial<Pick<SampleImage, "id" | "created_at">>;
 type SampleImageUpdate = Partial<Omit<SampleImage, "id" | "created_at">>;
+
+// copyright_rule_values 는 (rule_id, column_id) 복합키라 InsertOf 패턴이 안 맞음.
+// 둘 다 필수, checked 는 DEFAULT false 라 선택.
+type CopyrightRuleValueInsert = {
+  rule_id: number;
+  column_id: number;
+  checked?: boolean;
+};
+type CopyrightRuleValueUpdate = { checked?: boolean };
 
 export type Database = {
   // supabase-js v2.74+ 가 schema 버전을 추적하기 위해 요구하는 메타 필드.
@@ -278,6 +317,18 @@ export type Database = {
         Row: CopyrightRule;
         Insert: InsertOf<CopyrightRule>;
         Update: UpdateOf<CopyrightRule>;
+        Relationships: [];
+      };
+      copyright_columns: {
+        Row: CopyrightColumn;
+        Insert: InsertOf<CopyrightColumn>;
+        Update: UpdateOf<CopyrightColumn>;
+        Relationships: [];
+      };
+      copyright_rule_values: {
+        Row: CopyrightRuleValue;
+        Insert: CopyrightRuleValueInsert;
+        Update: CopyrightRuleValueUpdate;
         Relationships: [];
       };
       live2d_types: {
