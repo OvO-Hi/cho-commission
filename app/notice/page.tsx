@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import BackToTopButton from "@/components/BackToTopButton";
 import ScrollProgress from "@/components/ScrollProgress";
+import ScrollReveal from "@/components/ScrollReveal";
 import { sanitizeRich } from "@/lib/utils/sanitize";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentLocale } from "@/lib/i18n/locale";
@@ -97,28 +98,32 @@ export default async function NoticePage() {
           const html = sectionMap.get(key) ?? "";
 
           return (
-            <section key={key} className="notice-section">
-              <h2 className="notice-section-title">{title}</h2>
-              <div className="notice-card">
-                {isGuide ? (
-                  <CopyrightTable
-                    rules={rules}
-                    columns={columns}
-                    values={values}
-                    locale={locale}
-                  />
-                ) : html.trim() ? (
-                  <div
-                    className="notice-rich"
-                    dangerouslySetInnerHTML={{
-                      __html: sanitizeRich(html),
-                    }}
-                  />
-                ) : (
-                  <p className="notice-empty">준비 중입니다.</p>
-                )}
-              </div>
-            </section>
+            // live2d/illust 와 동일하게 각 section 단위로 ScrollReveal.
+            // hero(타이틀 + 부제)는 페이지 진입 즉시 보이도록 감싸지 않음 — 일관성 유지.
+            <ScrollReveal key={key}>
+              <section className="notice-section">
+                <h2 className="notice-section-title">{title}</h2>
+                <div className="notice-card">
+                  {isGuide ? (
+                    <CopyrightTable
+                      rules={rules}
+                      columns={columns}
+                      values={values}
+                      locale={locale}
+                    />
+                  ) : html.trim() ? (
+                    <div
+                      className="notice-rich"
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeRich(html),
+                      }}
+                    />
+                  ) : (
+                    <p className="notice-empty">준비 중입니다.</p>
+                  )}
+                </div>
+              </section>
+            </ScrollReveal>
           );
         })}
       </div>

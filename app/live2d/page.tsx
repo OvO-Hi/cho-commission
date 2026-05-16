@@ -3,6 +3,7 @@ import Link from "next/link";
 import BackToTopButton from "@/components/BackToTopButton";
 import CommissionFormCTA from "@/components/CommissionFormCTA";
 import Live2DCommissionForm from "@/components/Live2DCommissionForm";
+import NoticeAgreementGate from "@/components/NoticeAgreementGate";
 import ProcessTimeline from "@/components/ProcessTimeline";
 import ScrollProgress from "@/components/ScrollProgress";
 import ScrollReveal from "@/components/ScrollReveal";
@@ -247,7 +248,9 @@ export default async function Live2DPage() {
           <section id="commission-form" className="l2d-section">
             <h2 className="l2d-section-title">신청서 작성</h2>
             {formStatus === "open" ? (
-              <Live2DCommissionForm />
+              <NoticeAgreementGate>
+                <Live2DCommissionForm />
+              </NoticeAgreementGate>
             ) : (
               <div className="l2d-card l2d-form-placeholder">
                 <p>{STATUS_MESSAGE[formStatus]}</p>
