@@ -142,7 +142,9 @@ export default function CopyrightRulesEditor({
     setRules((prev) => prev.filter((r) => r.id !== id));
     setValueMap((prev) => {
       const next = new Map(prev);
-      for (const key of next.keys()) {
+      // Array.from 으로 키 스냅샷 떠서 순회 — tsconfig target 이 ES5 라서
+      // Map iterator 직접 for...of 가 컴파일 에러(downlevelIteration 미사용).
+      for (const key of Array.from(next.keys())) {
         if (key.startsWith(`${id}:`)) next.delete(key);
       }
       return next;
@@ -247,7 +249,8 @@ export default function CopyrightRulesEditor({
     setColumns((prev) => prev.filter((c) => c.id !== id));
     setValueMap((prev) => {
       const next = new Map(prev);
-      for (const key of next.keys()) {
+      // 위 deleteRule 과 동일 — Map iterator → Array.from 우회.
+      for (const key of Array.from(next.keys())) {
         if (key.endsWith(`:${id}`)) next.delete(key);
       }
       return next;
