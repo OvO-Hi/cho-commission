@@ -16,21 +16,36 @@ export default async function AdminSettingsPage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
 
-  const { data, error } = await supabase
-    .from("settings")
-    .select("key,value")
-    .in("key", [
-      SETTING_KEYS.intro,
-      SETTING_KEYS.snsX,
-      SETTING_KEYS.snsEmail,
-    ])
-    .eq("language", locale);
+  // 다국어 settings (intro/snsX/snsEmail) 은 현재 locale 로,
+  // 글로벌 토글 (ai_translation_enabled) 은 항상 ko row 로 분리 fetch.
+  const [localizedRes, aiToggleRes] = await Promise.all([
+    supabase
+      .from("settings")
+      .select("key,value")
+      .in("key", [
+        SETTING_KEYS.intro,
+        SETTING_KEYS.snsX,
+        SETTING_KEYS.snsEmail,
+      ])
+      .eq("language", locale),
+    supabase
+      .from("settings")
+      .select("value")
+      .eq("key", SETTING_KEYS.aiTranslationEnabled)
+      .eq("language", "ko")
+      .maybeSingle(),
+  ]);
 
-  if (error) {
-    console.error("[admin/settings] fetch failed:", error.message);
+  if (localizedRes.error) {
+    console.error("[admin/settings] fetch failed:", localizedRes.error.message);
+  }
+  if (aiToggleRes.error) {
+    console.error("[admin/settings] ai toggle fetch failed:", aiToggleRes.error.message);
   }
 
-  const map = new Map((data ?? []).map((s) => [s.key, s.value]));
+  const map = new Map((localizedRes.data ?? []).map((s) => [s.key, s.value]));
+  // DB 에 row 가 아직 없을 수도 있고(마이그레이션 미적용), value 가 'false' 이면 false.
+  const aiTranslationEnabled = aiToggleRes.data?.value === "true";
 
   return (
     <SettingsManager
@@ -40,6 +55,7 @@ export default async function AdminSettingsPage() {
         snsX: map.get(SETTING_KEYS.snsX) ?? DEFAULTS.snsX,
         snsEmail: map.get(SETTING_KEYS.snsEmail) ?? DEFAULTS.snsEmail,
       }}
+      aiTranslationEnabled={aiTranslationEnabled}
     />
   );
 }

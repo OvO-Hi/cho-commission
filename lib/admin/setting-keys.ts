@@ -7,4 +7,7 @@ export const SETTING_KEYS = {
   intro: "intro_text",
   snsX: "sns_x",
   snsEmail: "sns_email",
+  // AI 자동 번역 글로벌 토글. 다른 키들과 달리 row-per-language 가 아니라
+  // ko row 한 개만 두고 그것을 글로벌 boolean 으로 사용 (마이그레이션 003).
+  aiTranslationEnabled: "ai_translation_enabled",
 } as const;

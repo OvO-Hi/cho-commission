@@ -16,9 +16,14 @@ type SettingsState = {
 type Props = {
   initial: SettingsState;
   locale: Language;
+  aiTranslationEnabled: boolean;
 };
 
-export default function SettingsManager({ initial, locale }: Props) {
+export default function SettingsManager({
+  initial,
+  locale,
+  aiTranslationEnabled,
+}: Props) {
   const router = useRouter();
   const [state, setState] = useState<SettingsState>(initial);
   // 저장 완료된 시점의 스냅샷 — dirty 비교용. 저장 후 현재 상태로 갱신.
@@ -27,11 +32,19 @@ export default function SettingsManager({ initial, locale }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // AI 자동 번역 토글: 글로벌 설정이라 form-submit 흐름과 분리. 변경 즉시 저장.
+  const [aiToggle, setAiToggle] = useState(aiTranslationEnabled);
+  const [aiToggleBusy, setAiToggleBusy] = useState(false);
+
   // 서버가 router.refresh() 로 재요청되면 새 initial 로 동기화.
   useEffect(() => {
     setState(initial);
     setSnapshot(initial);
   }, [initial]);
+
+  useEffect(() => {
+    setAiToggle(aiTranslationEnabled);
+  }, [aiTranslationEnabled]);
 
   const dirty =
     state.intro !== snapshot.intro ||
@@ -117,6 +130,44 @@ export default function SettingsManager({ initial, locale }: Props) {
     }, 2500);
   }
 
+  // AI 자동 번역 토글 — 변경 즉시 저장. 글로벌 설정이라 language='ko' row 만 사용.
+  async function persistAiToggle(next: boolean) {
+    if (aiToggleBusy) return;
+    setAiToggle(next); // 낙관적 업데이트
+    setAiToggleBusy(true);
+    const supabase = createClient();
+    const key = SETTING_KEYS.aiTranslationEnabled;
+    const { data: existing } = await supabase
+      .from("settings")
+      .select("id")
+      .eq("key", key)
+      .eq("language", "ko")
+      .maybeSingle();
+    const result = existing
+      ? await supabase
+          .from("settings")
+          .update({ value: String(next) })
+          .eq("id", existing.id)
+      : await supabase.from("settings").insert({
+          key,
+          value: String(next),
+          language: "ko",
+          translation_key: crypto.randomUUID(),
+        });
+    setAiToggleBusy(false);
+    if (result.error) {
+      console.error(
+        "[admin/settings] ai toggle save failed:",
+        result.error.message,
+      );
+      setAiToggle(!next); // 롤백
+      setError("AI 번역 설정 저장에 실패했어요.");
+      return;
+    }
+    showToast(next ? "AI 자동 번역이 켜졌어요" : "AI 자동 번역이 꺼졌어요");
+    router.refresh();
+  }
+
   return (
     <form className="admin-main-card" onSubmit={handleSubmit}>
       <h1 className="admin-main-title">사이트 설정</h1>
@@ -166,6 +217,29 @@ export default function SettingsManager({ initial, locale }: Props) {
             onChange={(e) => update("snsEmail", e.target.value)}
           />
         </Field>
+
+        {/* AI 자동 번역 토글 — 위 form 의 submit 흐름과 분리 (변경 즉시 저장).
+            input type=checkbox 는 Enter 가 닿지 않는 한 form submit 을 트리거하지 않음. */}
+        <div className="admin-settings-field admin-settings-toggle-field">
+          <label
+            htmlFor="setting-ai-translation"
+            className="admin-settings-toggle-label"
+          >
+            <input
+              id="setting-ai-translation"
+              type="checkbox"
+              className="admin-settings-toggle-input"
+              checked={aiToggle}
+              disabled={aiToggleBusy}
+              onChange={(e) => persistAiToggle(e.target.checked)}
+            />
+            <span>AI 자동 번역 사용</span>
+          </label>
+          <p className="admin-settings-hint">
+            공지나 가격 등 KO 내용을 수정하실 때, AI 가 EN/JP 자동 번역해드릴지
+            매번 안내창이 뜹니다. AI API 사용료가 별도 발생합니다.
+          </p>
+        </div>
       </div>
 
       <div className="admin-settings-footer">
