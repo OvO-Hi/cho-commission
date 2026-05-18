@@ -8,8 +8,8 @@ const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 
 export const metadata: Metadata = {
   // 브랜드 표기를 요청사항에 맞춰 Sho -> Cho로 통일합니다.
-  title: "Cho | Live2D VTuber Portfolio",
-  description: "Live2D/VTuber commission portfolio design draft",
+  title: "STUDIO CHO",
+  description: "STUDIO CHO — Live2D / Illustration commission",
 };
 
 export default function RootLayout({
