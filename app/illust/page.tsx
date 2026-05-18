@@ -13,6 +13,7 @@ import {
   fetchListWithFallback,
   fetchSingleWithFallback,
 } from "@/lib/i18n/fetchWithFallback";
+import { formatPrice } from "@/lib/i18n/formatPrice";
 import { getCurrentLocale } from "@/lib/i18n/locale";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +26,6 @@ const SUBCATEGORY_LABEL: Record<string, string> = {
 };
 
 // 작업 과정은 어드민 페이지(/admin/dashboard/process) 에서 관리.
-
-const krw = new Intl.NumberFormat("ko-KR");
 
 type FormStatus = "open" | "closed" | "no-slots" | "all-filled";
 
@@ -235,7 +234,7 @@ export default async function IllustPage() {
                           {bp.description ? ` (${bp.description})` : ""}
                         </span>
                         <span className="l2d-pricecard-base-amount">
-                          ₩{krw.format(bp.price)}
+                          {formatPrice(bp.price, bp.language)}
                         </span>
                       </li>
                     ))}
@@ -254,8 +253,10 @@ export default async function IllustPage() {
                                 : ""}
                             </span>
                             <span className="l2d-pricecard-add">
-                              +{krw.format(addon.price)}원
-                              {addon.is_approx ? "~" : ""}
+                              {formatPrice(addon.price, addon.language, {
+                                isAddon: true,
+                                isApprox: addon.is_approx,
+                              })}
                             </span>
                           </li>
                         ))}

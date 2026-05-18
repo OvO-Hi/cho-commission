@@ -13,6 +13,7 @@ import {
   fetchListWithFallback,
   fetchSingleWithFallback,
 } from "@/lib/i18n/fetchWithFallback";
+import { formatPrice } from "@/lib/i18n/formatPrice";
 import { getCurrentLocale } from "@/lib/i18n/locale";
 
 // 어드민의 슬롯/오픈 설정 변경이 즉시 반영되도록 캐싱 비활성화.
@@ -21,8 +22,6 @@ export const dynamic = "force-dynamic";
 // 가격은 어드민 페이지(/admin/dashboard/pricing) 에서 관리. price_items 테이블 fetch.
 
 // 작업 과정 / 작업 타입 안내는 어드민 페이지(/admin/dashboard/process) 에서 관리.
-
-const krw = new Intl.NumberFormat("ko-KR");
 
 // 폼이 보일 수 있는 4가지 상태.
 type FormStatus = "open" | "closed" | "no-slots" | "all-filled";
@@ -252,7 +251,7 @@ export default async function Live2DPage() {
                       <h3 className="l2d-pricecard-title">{main.item_name}</h3>
                       <div className="l2d-pricecard-header">
                         <p className="l2d-pricecard-amount">
-                          ₩{krw.format(main.price)}
+                          {formatPrice(main.price, main.language)}
                         </p>
                         {main.description && (
                           <p className="l2d-pricecard-base">
@@ -276,8 +275,10 @@ export default async function Live2DPage() {
                           {addon.description ? ` (${addon.description})` : ""}
                         </span>
                         <span className="l2d-pricecard-add">
-                          +{krw.format(addon.price)}원
-                          {addon.is_approx ? "~" : ""}
+                          {formatPrice(addon.price, addon.language, {
+                            isAddon: true,
+                            isApprox: addon.is_approx,
+                          })}
                         </span>
                       </li>
                     ))}
