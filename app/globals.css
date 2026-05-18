@@ -640,6 +640,72 @@ a {
   padding: 18px 0;
 }
 
+/* notice 페이지 하단 — 신청 페이지로 바로 가는 두 CTA. */
+.notice-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 32px;
+  justify-content: center;
+}
+
+.notice-cta-btn {
+  flex: 1 1 220px;
+  max-width: 320px;
+  padding: 16px 24px;
+  border-radius: 14px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  /* 흰 카드 + 컬러 글로우 패턴. 테두리/배경으로 색을 frame 하지 않고 카드 주변에
+     은은하게 컬러가 퍼지는 톤. 변하는 건 box-shadow / transform / color 뿐 —
+     배경/테두리는 정적. */
+  background: #fff;
+  border: none;
+  color: var(--text-main);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    color 0.25s ease;
+}
+
+/* Live2D — 민트 글로우. 두 레이어:
+     1) 기본 흰 카드용 옅은 회색 그림자 (사이트 일관성)
+     2) accent 컬러 글로우 (퍼짐을 위해 spread 살짝, blur 크게) */
+.notice-cta-btn-live2d {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 0 24px rgba(158, 225, 122, 0.25);
+}
+
+.notice-cta-btn-live2d:hover {
+  transform: translateY(-3px);
+  color: #5fa340;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    0 0 36px rgba(158, 225, 122, 0.45);
+}
+
+/* Illust — 더 연한 파스텔 핑크 글로우. Live2D 민트와 비슷한 채도 인지를 위해
+   알파를 낮춰 톤다운. (이전엔 0.3/0.5 였는데 시각적으로 진해 보였음.) */
+.notice-cta-btn-illust {
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 0 24px rgba(255, 179, 204, 0.18);
+}
+
+.notice-cta-btn-illust:hover {
+  transform: translateY(-3px);
+  /* 이전 #b3517a 는 채도가 너무 높아 호버 시 글자가 튀었음. Live2D 호버 글자
+     #5fa340 과 채도(약 40%) 를 맞추되, 핑크는 본래 light tone 이라 명도만 더
+     높게 — 부드러우면서 흰 배경 위에서 가독성 유지. */
+  color: #c97a96;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.08),
+    0 0 36px rgba(255, 179, 204, 0.32);
+}
+
 /* notices 의 리치 텍스트 (HTML) 렌더 영역. 자식 p/ul/h1 등 prose 스타일. */
 .notice-rich {
   font-size: 0.95rem;
@@ -4800,6 +4866,90 @@ a {
 }
 
 .admin-nav-guard-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Confirm modal — 다국어 동시 삭제 dialog (useDeleteScopeDialog).
+   navigation guard 와 동일한 시각 패턴이지만 의미가 달라 별도 prefix.
+   ───────────────────────────────────────────────────────────────────── */
+.admin-confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-confirm-modal-card {
+  position: relative;
+  z-index: 101;
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-confirm-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.admin-confirm-modal-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #555;
+}
+
+.admin-confirm-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.admin-confirm-modal-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: var(--text-main);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-confirm-modal-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.admin-confirm-modal-btn-danger {
+  background: #fff;
+  color: #d44;
+  border-color: #f3c5c5;
+}
+
+.admin-confirm-modal-btn-danger:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #e8a0a0;
+}
+
+.admin-confirm-modal-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

@@ -27,6 +27,7 @@ import {
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
 import { setDirtyState } from "@/lib/admin/dirty-store";
+import { useDeleteScopeDialog } from "@/lib/admin/useDeleteScopeDialog";
 import { createClient } from "@/lib/supabase/client";
 import { translateText } from "@/lib/i18n/translate-client";
 import type {
@@ -62,6 +63,7 @@ export default function ProcessManager({
   locale,
   aiTranslationEnabled,
 }: Props) {
+  const deleteScope = useDeleteScopeDialog();
   const router = useRouter();
   const [activeCategory, setActiveCategory] =
     useState<CommissionCategory>("live2d");
@@ -400,15 +402,25 @@ export default function ProcessManager({
   }
 
   async function deleteStep(step: ProcessStep) {
-    // 단순 confirm. 같은 translation_key 의 다른 언어 row 는 그대로 유지.
-    if (!window.confirm("이 항목을 삭제하시겠어요?")) return;
+    const supabase = createClient();
+    const scope = await deleteScope.ask({
+      supabase,
+      table: "process_steps",
+      translationKey: step.translation_key,
+      currentLocale: locale,
+      itemHint: step.title || undefined,
+    });
+    if (scope === "cancelled") return;
 
     saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("process_steps")
-      .delete()
-      .eq("id", step.id);
+    const query =
+      scope === "all"
+        ? supabase
+            .from("process_steps")
+            .delete()
+            .eq("translation_key", step.translation_key)
+        : supabase.from("process_steps").delete().eq("id", step.id);
+    const { error } = await query;
     if (error) {
       console.error("[admin/process] delete step failed:", error.message);
       saveNotifier.notifyError();
@@ -486,16 +498,26 @@ export default function ProcessManager({
   }
 
   async function deleteType(type: Live2DType) {
-    // 단순 confirm. 같은 translation_key 의 다른 언어 row 는 그대로 유지.
     // live2d_type_items 는 부모 ON DELETE CASCADE 로 함께 정리.
-    if (!window.confirm("이 타입 카드를 삭제하시겠어요?")) return;
+    const supabase = createClient();
+    const scope = await deleteScope.ask({
+      supabase,
+      table: "live2d_types",
+      translationKey: type.translation_key,
+      currentLocale: locale,
+      itemHint: type.title || type.type_key || undefined,
+    });
+    if (scope === "cancelled") return;
 
     saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("live2d_types")
-      .delete()
-      .eq("id", type.id);
+    const query =
+      scope === "all"
+        ? supabase
+            .from("live2d_types")
+            .delete()
+            .eq("translation_key", type.translation_key)
+        : supabase.from("live2d_types").delete().eq("id", type.id);
+    const { error } = await query;
     if (error) {
       console.error("[admin/process] delete type failed:", error.message);
       saveNotifier.notifyError();
@@ -692,6 +714,7 @@ export default function ProcessManager({
 
       </div>
       <AdminSaveBar dirtyCount={dirtyCount} onSave={handleSaveAll} />
+      {deleteScope.portal}
     </SaveStateContext.Provider>
   );
 }

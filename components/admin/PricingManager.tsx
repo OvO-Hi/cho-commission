@@ -27,6 +27,7 @@ import {
 } from "@/components/admin/sample-blocks/save-state";
 import AdminSaveBar from "@/components/admin/AdminSaveBar";
 import { setDirtyState } from "@/lib/admin/dirty-store";
+import { useDeleteScopeDialog } from "@/lib/admin/useDeleteScopeDialog";
 import { createClient } from "@/lib/supabase/client";
 import { translateText } from "@/lib/i18n/translate-client";
 import type { CommissionCategory, Language, PriceItem } from "@/types/database";
@@ -69,6 +70,7 @@ export default function PricingManager({
   locale,
   aiTranslationEnabled,
 }: Props) {
+  const deleteScope = useDeleteScopeDialog();
   const router = useRouter();
   const [activeCategory, setActiveCategory] =
     useState<CommissionCategory>("live2d");
@@ -393,22 +395,34 @@ export default function PricingManager({
   }
 
   async function deleteItem(item: PriceItem) {
-    // 단순 confirm. 같은 translation_key 의 다른 언어 row 는 그대로 유지 — 어드민이
-    // 명시적으로 EN/JP 탭으로 옮겨 삭제해야 함. (AI 번역 도입 후엔 다이얼로그가
-    // 자동 처리 예정.)
-    if (!window.confirm("이 항목을 삭제하시겠어요?")) return;
+    const supabase = createClient();
+    const scope = await deleteScope.ask({
+      supabase,
+      table: "price_items",
+      translationKey: item.translation_key,
+      currentLocale: locale,
+      itemHint: item.item_name || undefined,
+    });
+    if (scope === "cancelled") return;
 
     saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("price_items")
-      .delete()
-      .eq("id", item.id);
+    // scope === "all": 같은 translation_key 의 모든 언어 row 삭제 (ON DELETE CASCADE 가
+    // 자식 테이블 있으면 자동 처리). "current-only": 현재 row 만.
+    const query =
+      scope === "all"
+        ? supabase
+            .from("price_items")
+            .delete()
+            .eq("translation_key", item.translation_key)
+        : supabase.from("price_items").delete().eq("id", item.id);
+    const { error } = await query;
     if (error) {
       console.error("[admin/pricing] delete failed:", error.message);
       saveNotifier.notifyError();
       return;
     }
+    // 로컬 state 청소 — scope=all 이어도 이 페이지의 items 는 현재 locale 만 들고 있어
+    // 결과적으로 1개 row 만 제거하면 됨.
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     saveNotifier.notifySaved();
     router.refresh();
@@ -512,6 +526,7 @@ export default function PricingManager({
 
       </div>
       <AdminSaveBar dirtyCount={dirtyIds.length} onSave={handleSaveAll} />
+      {deleteScope.portal}
     </SaveStateContext.Provider>
   );
 }

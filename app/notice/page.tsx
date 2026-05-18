@@ -132,6 +132,19 @@ export default async function NoticePage() {
             </ScrollReveal>
           );
         })}
+
+        {/* 사용자가 notice 를 읽은 뒤 바로 신청 페이지로 이동할 수 있도록 하단 CTA.
+            메인으로 돌아갔다 다시 진입하는 흐름의 마찰을 줄임. */}
+        <ScrollReveal>
+          <div className="notice-cta">
+            <Link href="/live2d" className="notice-cta-btn notice-cta-btn-live2d">
+              Live2D 신청하기
+            </Link>
+            <Link href="/illust" className="notice-cta-btn notice-cta-btn-illust">
+              Illust 신청하기
+            </Link>
+          </div>
+        </ScrollReveal>
       </div>
     </main>
   );
