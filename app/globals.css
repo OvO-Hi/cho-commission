@@ -4048,8 +4048,24 @@ a {
 }
 
 @media (max-width: 720px) {
+  /* 모든 admin row 의 input/cell 이 grid item 의 default min-width: auto 때문에
+     콘텐츠 폭으로 강제 확장되어 grid 가 viewport 밖으로 새는 문제 — 0 으로
+     명시해 셀 폭에 맞춰 축소되게 한다. */
+  .admin-process-row > *,
+  .admin-type-row > *,
+  .admin-type-item-row > *,
+  .admin-pricing-row > * {
+    min-width: 0;
+  }
+
+  /* 작업 단계 row — 1행: handle | num | title | delete / 2행: 펼침 토글
+     기존 column 폭(24/36) 을 살짝 좁혀 title input 폭 확보. */
   .admin-process-row {
-    grid-template-columns: 24px 36px 1fr 28px;
+    grid-template-columns: 20px 28px 1fr 28px;
+    gap: 6px;
+  }
+  .admin-process-title {
+    padding: 8px;
   }
   .admin-process-toggle {
     grid-column: 1 / -1;
@@ -4057,38 +4073,75 @@ a {
     justify-self: flex-start;
   }
 
+  /* 타입 카드 row — 1행: handle | type_key | delete / 2행: title 풀폭. */
   .admin-type-row {
     grid-template-columns: 24px 1fr 28px;
+    gap: 6px;
+  }
+  .admin-type-key,
+  .admin-type-title {
+    padding: 8px;
   }
   .admin-type-title {
     grid-column: 1 / -1;
     grid-row: 2;
   }
 
+  /* 타입 항목 row — 좁은 폭에서 label/value 가 같은 행에 다 들어가게 좁힘. */
+  .admin-type-item-row {
+    grid-template-columns: 16px 1fr 2fr 22px;
+    gap: 4px;
+  }
+  .admin-type-item-input {
+    padding: 6px 8px;
+  }
+
+  /* 가격 row — 4열 grid + 3행 area.
+       1행: handle / item_name (col2~3 span) / delete
+       2행: price / approx
+       3행: description (풀폭)
+     이전엔 price 와 approx 가 같은 셀(col 2)에 겹쳐서 ~ 가 input 밖으로 잘렸음.
+     별도 col 으로 분리. */
   .admin-pricing-row {
-    grid-template-columns: 24px 1fr 28px;
+    grid-template-columns: 24px 1fr auto 28px;
     grid-template-rows: auto auto auto;
+    gap: 6px 8px;
+  }
+
+  .admin-pricing-handle {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .admin-pricing-name {
-    grid-column: 2 / 3;
+    grid-column: 2 / 4;
+    grid-row: 1;
+    padding: 8px;
+  }
+
+  /* row1 우측 끝의 X 버튼 — admin-block-delete 는 다른 페이지에서도 쓰는
+     일반 클래스라 pricing row 안쪽으로 selector 한정. */
+  .admin-pricing-row .admin-block-delete {
+    grid-column: 4;
     grid-row: 1;
   }
 
   .admin-pricing-price {
-    grid-column: 2 / 3;
+    grid-column: 2;
     grid-row: 2;
+    padding: 8px;
   }
 
   .admin-pricing-approx {
-    grid-column: 2 / 3;
+    grid-column: 3;
     grid-row: 2;
-    justify-self: end;
+    justify-self: start;
   }
 
   .admin-pricing-desc {
-    grid-column: 2 / 3;
+    grid-column: 2 / -1;
     grid-row: 3;
+    padding: 8px;
   }
 }
 
