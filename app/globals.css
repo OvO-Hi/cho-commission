@@ -293,6 +293,20 @@ a {
   box-shadow: 0 6px 14px rgba(58, 58, 58, 0.08);
 }
 
+/* 모바일 + Notice/Live2D/Illust 한정: 토글이 화면 우측 끝에 있어 가운데 정렬
+   드롭다운이 viewport 밖으로 튀어나감. 토글 기준 우측 정렬 + 폭 축소.
+   메인 페이지(.site-shell)는 토글이 가운데 정렬돼 있어 영향 없음. */
+@media (max-width: 720px) {
+  .notice-shell .lang-dropdown,
+  .l2d-shell .lang-dropdown {
+    left: auto;
+    right: 0;
+    transform: none;
+    width: 64px;
+    padding: 4px;
+  }
+}
+
 .lang-dropdown li {
   list-style: none;
   padding: 0;
