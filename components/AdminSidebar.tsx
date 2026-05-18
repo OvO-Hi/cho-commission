@@ -34,6 +34,9 @@ export default function AdminSidebar({ locale }: { locale: Language }) {
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // 모바일 햄버거 슬라이드 — 데스크탑에서는 CSS 가 .is-open 무시.
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   // dirty 상태 + 떠나려는 href 를 모달용으로 보관. 모달 표시 중일 때만 not-null.
   const [guard, setGuard] = useState<GuardState | null>(null);
   const [guardBusy, setGuardBusy] = useState(false);
@@ -44,15 +47,20 @@ export default function AdminSidebar({ locale }: { locale: Language }) {
     setMounted(true);
   }, []);
 
-  // 모달 열려있을 때 body 스크롤 잠금 — 뒤 페이지가 스크롤되어 어수선해지는 걸 방지.
+  // 모달 또는 모바일 사이드바 열려있을 때 body 스크롤 잠금.
   useEffect(() => {
-    if (!guard) return;
+    if (!guard && !mobileOpen) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = original;
     };
-  }, [guard]);
+  }, [guard, mobileOpen]);
+
+  // 경로가 바뀌면 (메뉴 클릭으로 이동했을 때 등) 모바일 사이드바 자동 닫기.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -72,10 +80,18 @@ export default function AdminSidebar({ locale }: { locale: Language }) {
   }
 
   function handleNavClick(e: MouseEvent<HTMLAnchorElement>, href: string) {
-    // 같은 메뉴(현재 페이지) 면 가드 불필요.
-    if (pathname.startsWith(href)) return;
+    // 같은 메뉴(현재 페이지) 면 가드 불필요. 모바일 사이드바만 닫는다.
+    if (pathname.startsWith(href)) {
+      setMobileOpen(false);
+      return;
+    }
     const dirty = getDirtyState();
-    if (!dirty || dirty.count === 0) return;
+    if (!dirty || dirty.count === 0) {
+      // 모바일 사이드바는 pathname 변화 useEffect 가 자동으로 닫지만,
+      // 클릭 즉시 닫혀 보이도록 명시.
+      setMobileOpen(false);
+      return;
+    }
     // dirty — 기본 Link 이동을 막고 모달 띄움.
     e.preventDefault();
     setGuard({ href, count: dirty.count, save: dirty.save });
@@ -111,37 +127,67 @@ export default function AdminSidebar({ locale }: { locale: Language }) {
   }
 
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-sidebar-title">
-        <span>Admin</span>
-        <LanguageToggle current={locale} />
-      </div>
-
-      <nav className="admin-nav">
-        {NAV_ITEMS.map((item) => {
-          // startsWith 로 sub-route(/admin/dashboard/commissions/123 등)도 부모 메뉴를 활성화.
-          const active = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`admin-nav-item${active ? " admin-nav-item-active" : ""}`}
-              onClick={(e) => handleNavClick(e, item.href)}
-            >
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
+    <>
+      {/* 모바일 한정 햄버거 버튼 — 데스크탑에서는 CSS 로 숨김. fixed top-left. */}
       <button
         type="button"
-        className="admin-logout"
-        onClick={handleLogout}
-        disabled={loggingOut}
+        className="admin-sidebar-hamburger"
+        onClick={() => setMobileOpen(true)}
+        aria-label="메뉴 열기"
+        aria-expanded={mobileOpen}
       >
-        {loggingOut ? "로그아웃 중..." : "로그아웃"}
+        <span aria-hidden="true">☰</span>
       </button>
+
+      <aside
+        className={`admin-sidebar${mobileOpen ? " is-open" : ""}`}
+        aria-hidden={
+          // 모바일에서 닫혀있을 때 screen reader 가 메뉴 탐색하지 않도록.
+          // 데스크탑에서는 항상 visible 이지만 attribute 가 영향 없음 (CSS 분기).
+          !mobileOpen ? undefined : false
+        }
+      >
+        <div className="admin-sidebar-title">
+          <span>Admin</span>
+          <LanguageToggle current={locale} />
+        </div>
+
+        <nav className="admin-nav">
+          {NAV_ITEMS.map((item) => {
+            // startsWith 로 sub-route(/admin/dashboard/commissions/123 등)도 부모 메뉴를 활성화.
+            const active = pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`admin-nav-item${active ? " admin-nav-item-active" : ""}`}
+                onClick={(e) => handleNavClick(e, item.href)}
+              >
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <button
+          type="button"
+          className="admin-logout"
+          onClick={handleLogout}
+          disabled={loggingOut}
+        >
+          {loggingOut ? "로그아웃 중..." : "로그아웃"}
+        </button>
+      </aside>
+
+      {/* 모바일 사이드바 오버레이 — 클릭 시 닫기. 데스크탑은 CSS 로 숨김. */}
+      {mobileOpen && (
+        <div
+          className="admin-sidebar-overlay"
+          role="presentation"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       {/* navigation guard 모달을 document.body 로 포탈. RichTextEditor 내부의
           ProseMirror 가 자체 stacking context 를 만들어 부모(.admin-sidebar 또는
@@ -202,6 +248,6 @@ export default function AdminSidebar({ locale }: { locale: Language }) {
             document.body,
           )
         : null}
-    </aside>
+    </>
   );
 }
