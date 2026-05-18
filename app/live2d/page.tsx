@@ -338,8 +338,8 @@ export default async function Live2DPage() {
           <section id="commission-form" className="l2d-section">
             <h2 className="l2d-section-title">신청서 작성</h2>
             {formStatus === "open" ? (
-              <NoticeAgreementGate>
-                <Live2DCommissionForm />
+              <NoticeAgreementGate locale={locale}>
+                <Live2DCommissionForm locale={locale} />
               </NoticeAgreementGate>
             ) : (
               <div className="l2d-card l2d-form-placeholder">

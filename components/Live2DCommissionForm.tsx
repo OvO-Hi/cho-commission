@@ -4,12 +4,13 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
+import { getFormMessages } from "@/lib/i18n/form-messages";
 import {
   deleteImage,
   uploadImage,
   type UploadResult,
 } from "@/lib/storage/upload";
-import type { ApplicationType } from "@/types/database";
+import type { ApplicationType, Language } from "@/types/database";
 
 type FormState = {
   nickname: string;
@@ -43,11 +44,6 @@ const INITIAL: FormState = {
   additional_notes: "",
 };
 
-const APPLICATION_TYPE_OPTIONS: { value: ApplicationType; label: string }[] = [
-  { value: "illust", label: "일러스트만" },
-  { value: "both", label: "일러스트 + 리깅" },
-];
-
 const MAX_IMAGES = 5;
 
 // sessionStorage 키. 완료 페이지에서 동일한 키로 읽습니다.
@@ -56,8 +52,13 @@ const MAX_IMAGES = 5;
 export const LIVE2D_SUBMISSION_KEY = "live2d_submission";
 export const LIVE2D_IMAGES_KEY = "live2d_submission_images";
 
-export default function Live2DCommissionForm() {
+export default function Live2DCommissionForm({ locale }: { locale: Language }) {
   const router = useRouter();
+  const messages = getFormMessages(locale);
+  const applicationTypeOptions: { value: ApplicationType; label: string }[] = [
+    { value: "illust", label: messages.illust_only },
+    { value: "both", label: messages.illust_rigging },
+  ];
   const [state, setState] = useState<FormState>(INITIAL);
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -103,12 +104,12 @@ export default function Live2DCommissionForm() {
 
   function validate(): Errors {
     const next: Errors = {};
-    if (!state.nickname.trim()) next.nickname = "닉네임을 입력해 주세요";
-    if (!state.contact.trim()) next.contact = "연락처를 입력해 주세요";
+    if (!state.nickname.trim()) next.nickname = messages.validation_nickname;
+    if (!state.contact.trim()) next.contact = messages.validation_contact;
     if (!state.application_type)
-      next.application_type = "신청 타입을 선택해 주세요";
+      next.application_type = messages.validation_type;
     if (!state.character_description.trim())
-      next.character_description = "신청 캐릭터 정보를 입력해 주세요";
+      next.character_description = messages.validation_character;
     return next;
   }
 
@@ -152,9 +153,7 @@ export default function Live2DCommissionForm() {
         // uploadImage 는 catch 내부에서 swallow 하므로 여기 도달은 거의 없지만 안전장치.
         console.error("[live2d-form] upload threw unexpectedly:", err);
         setUploadingImages(false);
-        setSubmitError(
-          "이미지 업로드 중 예외가 발생했어요. 잠시 후 다시 시도해 주세요.",
-        );
+        setSubmitError(messages.submit_error_upload_exception);
         setSubmitting(false);
         return;
       }
@@ -175,9 +174,7 @@ export default function Live2DCommissionForm() {
             deleteImage("commission-images", r.path),
           ),
         );
-        setSubmitError(
-          "이미지 업로드에 실패했어요. 잠시 후 다시 시도해 주세요.",
-        );
+        setSubmitError(messages.submit_error_upload_partial);
         setSubmitting(false);
         return;
       }
@@ -219,7 +216,7 @@ export default function Live2DCommissionForm() {
           uploadedUrls,
         );
       }
-      setSubmitError("제출 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
+      setSubmitError(messages.submit_error_generic);
       setSubmitting(false);
       return;
     }
@@ -278,13 +275,13 @@ export default function Live2DCommissionForm() {
       <div className="l2d-form-row">
         <div className="l2d-form-group">
           <label htmlFor="l2d-nickname" className="l2d-form-label">
-            닉네임 <span className="l2d-form-req">*</span>
+            {messages.nickname} <span className="l2d-form-req">*</span>
           </label>
           <input
             id="l2d-nickname"
             type="text"
             className={`l2d-form-input${errors.nickname ? " l2d-form-input-err" : ""}`}
-            placeholder="닉네임을 입력해주세요"
+            placeholder={messages.nickname_placeholder}
             value={state.nickname}
             onChange={(e) => update("nickname", e.target.value)}
           />
@@ -293,35 +290,33 @@ export default function Live2DCommissionForm() {
 
         <div className="l2d-form-group">
           <label htmlFor="l2d-contact" className="l2d-form-label">
-            연락처 <span className="l2d-form-req">*</span>
+            {messages.contact} <span className="l2d-form-req">*</span>
           </label>
           <input
             id="l2d-contact"
             type="text"
             className={`l2d-form-input${errors.contact ? " l2d-form-input-err" : ""}`}
-            placeholder="예: @cho__913"
+            placeholder={messages.contact_placeholder}
             value={state.contact}
             onChange={(e) => update("contact", e.target.value)}
           />
           {/* 안내문은 input 아래로 이동해 닉네임 group 의 (라벨 → input) 위치와 맞춥니다. */}
-          <p className="l2d-form-hint">
-            이메일, X, 디스코드 등 빠른 연락이 가능한 연락처를 남겨주세요
-          </p>
+          <p className="l2d-form-hint">{messages.contact_help}</p>
           {errors.contact && <p className="l2d-form-msg">{errors.contact}</p>}
         </div>
       </div>
 
       <div className="l2d-form-group">
         <label htmlFor="l2d-date" className="l2d-form-label">
-          수령 희망 날짜
-          <span className="l2d-form-optional">(선택)</span>
+          {messages.desired_date}
+          <span className="l2d-form-optional">({messages.optional_label})</span>
         </label>
         <input
           id="l2d-date"
           type="text"
           /* 날짜는 짧은 입력이라 너비를 280px 로 제한해 시각적 균형을 잡습니다. */
           className="l2d-form-input l2d-form-input-narrow"
-          placeholder="예: 3/15, 3-15 등"
+          placeholder={messages.desired_date_placeholder}
           value={state.desired_date}
           onChange={(e) => update("desired_date", e.target.value)}
         />
@@ -331,40 +326,42 @@ export default function Live2DCommissionForm() {
       <div className="l2d-form-row">
         <div className="l2d-form-group">
           <span className="l2d-form-label">
-            작업과정 비공개 <span className="l2d-form-req">*</span>
+            {messages.work_process_private}{" "}
+            <span className="l2d-form-req">*</span>
           </span>
           <div className="l2d-radio-row">
             <RadioPill
               name="process_private"
               checked={!state.process_private}
               onSelect={() => update("process_private", false)}
-              label="상관없음"
+              label={messages.no_preference}
             />
             <RadioPill
               name="process_private"
               checked={state.process_private}
               onSelect={() => update("process_private", true)}
-              label="비공개"
+              label={messages.private_label}
             />
           </div>
         </div>
 
         <div className="l2d-form-group">
           <span className="l2d-form-label">
-            포트폴리오 비공개 <span className="l2d-form-req">*</span>
+            {messages.portfolio_private}{" "}
+            <span className="l2d-form-req">*</span>
           </span>
           <div className="l2d-radio-row">
             <RadioPill
               name="portfolio_private"
               checked={!state.portfolio_private}
               onSelect={() => update("portfolio_private", false)}
-              label="상관없음"
+              label={messages.no_preference}
             />
             <RadioPill
               name="portfolio_private"
               checked={state.portfolio_private}
               onSelect={() => update("portfolio_private", true)}
-              label="비공개"
+              label={messages.private_label}
             />
           </div>
         </div>
@@ -373,10 +370,10 @@ export default function Live2DCommissionForm() {
       {/* 신청 타입 */}
       <div className="l2d-form-group">
         <span className="l2d-form-label">
-          신청 타입 <span className="l2d-form-req">*</span>
+          {messages.request_type} <span className="l2d-form-req">*</span>
         </span>
         <div className="l2d-radio-row">
-          {APPLICATION_TYPE_OPTIONS.map((opt) => (
+          {applicationTypeOptions.map((opt) => (
             <RadioPill
               key={opt.value}
               name="application_type"
@@ -394,11 +391,9 @@ export default function Live2DCommissionForm() {
       {/* 서술형 — 신청 캐릭터 + 이미지 첨부 */}
       <div className="l2d-form-group">
         <label htmlFor="l2d-character" className="l2d-form-label">
-          신청 캐릭터 <span className="l2d-form-req">*</span>
+          {messages.request_character} <span className="l2d-form-req">*</span>
         </label>
-        <p className="l2d-form-hint">
-          아직 정해지지 않았다면 대략적인 느낌이나 자료를 적어주세요
-        </p>
+        <p className="l2d-form-hint">{messages.character_placeholder}</p>
         <textarea
           id="l2d-character"
           rows={4}
@@ -421,7 +416,7 @@ export default function Live2DCommissionForm() {
               disabled={!canAddImage}
               onChange={handleImageSelect}
             />
-            📎 이미지 첨부 ({images.length}/{MAX_IMAGES})
+            📎 {messages.image_attach} ({images.length}/{MAX_IMAGES})
           </label>
 
           {images.length > 0 && (
@@ -430,12 +425,12 @@ export default function Live2DCommissionForm() {
                 <li key={img.id} className="l2d-form-image-item">
                   {/* dataURL 미리보기. 실제 업로드는 추후 Supabase Storage 연동 단계에서 처리 */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.previewUrl} alt="첨부 미리보기" />
+                  <img src={img.previewUrl} alt={messages.image_preview_alt} />
                   <button
                     type="button"
                     className="l2d-form-image-remove"
                     onClick={() => removeImage(img.id)}
-                    aria-label="첨부 이미지 제거"
+                    aria-label={messages.image_remove_aria}
                   >
                     ✕
                   </button>
@@ -448,8 +443,8 @@ export default function Live2DCommissionForm() {
 
       <div className="l2d-form-group">
         <label htmlFor="l2d-additional" className="l2d-form-label">
-          추가사항
-          <span className="l2d-form-optional">(선택)</span>
+          {messages.additional_notes}
+          <span className="l2d-form-optional">({messages.optional_label})</span>
         </label>
         <textarea
           id="l2d-additional"
@@ -471,10 +466,10 @@ export default function Live2DCommissionForm() {
           disabled={submitting}
         >
           {uploadingImages
-            ? "이미지 업로드 중..."
+            ? messages.uploading_images
             : submitting
-              ? "제출 중..."
-              : "제출"}
+              ? messages.submitting
+              : messages.submit}
         </button>
       </div>
     </form>

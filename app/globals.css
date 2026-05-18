@@ -1321,30 +1321,30 @@ a {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.l2d-type-item {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
+  /* 같은 카드 안 모든 row 의 value 가 같은 왼쪽 시작점에 정렬되도록 grid 사용.
+     label 컬럼이 max-content 라 카드별로 가장 긴 라벨에 맞춰 자동으로 너비가 잡힘.
+     KO 처럼 라벨이 짧으면 좁게, EN/JP 처럼 길면 그에 맞춰 넓게. */
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 10px;
   font-size: 0.9rem;
   line-height: 1.55;
 }
 
+/* <li> 는 그리드 셀이 아니라 컨테이너로 사라지고, 직계 자식 (label/value) 이
+   그리드 셀이 되도록 contents. 마커는 list-style:none 으로 이미 제거되어 안전. */
+.l2d-type-item {
+  display: contents;
+}
+
 .l2d-type-label {
-  flex-shrink: 0;
   font-weight: 500;
   color: var(--mint-point);
-  /* 라벨/불릿 칼럼 너비를 고정해 모든 항목의 value 시작점이 일정합니다. */
-  min-width: 84px;
 }
 
 .l2d-type-value {
   color: #555;
-  flex: 1;
 }
 
 /* (live2d_types.description rich text 스키마는 폐기되어 .l2d-type-description CSS 도 제거.
