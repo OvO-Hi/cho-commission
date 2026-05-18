@@ -32,6 +32,13 @@ function pickColumnLabel(column: CopyrightColumn, locale: Language): string {
   return column.label_ko;
 }
 
+// 행 라벨도 같은 패턴 — copyright_rules.label 이 ko, label_en/jp 가 nullable.
+function pickRuleLabel(rule: CopyrightRule, locale: Language): string {
+  if (locale === "en") return rule.label_en?.trim() || rule.label;
+  if (locale === "jp") return rule.label_jp?.trim() || rule.label;
+  return rule.label;
+}
+
 export default async function NoticePage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
@@ -186,7 +193,7 @@ function CopyrightTable({
         <tbody>
           {rules.map((rule) => (
             <tr key={rule.id}>
-              <th scope="row">{rule.label}</th>
+              <th scope="row">{pickRuleLabel(rule, locale)}</th>
               {columns.map((c) => {
                 const allowed = valueMap.get(`${rule.id}:${c.id}`) ?? false;
                 return (

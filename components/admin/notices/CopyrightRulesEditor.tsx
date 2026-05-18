@@ -56,6 +56,15 @@ function localeLabelColumn(
   return "label_ko";
 }
 
+// 행 라벨 컬럼명. copyright_rules 는 ko 가 `label` (legacy) 이라 컬럼 헤더와 다름.
+function localeRuleLabelColumn(
+  locale: Language,
+): "label" | "label_en" | "label_jp" {
+  if (locale === "en") return "label_en";
+  if (locale === "jp") return "label_jp";
+  return "label";
+}
+
 // 셀 lookup 키. (rule, column) 쌍을 한 문자열로 압축해서 Map 키로 사용.
 function cellKey(ruleId: number, columnId: number) {
   return `${ruleId}:${columnId}`;
@@ -114,10 +123,14 @@ export default function CopyrightRulesEditor({
     const supabase = createClient();
     // deprecated boolean 컬럼들은 DB 가 NOT NULL DEFAULT false 라면 생략 가능하지만,
     // 명시 전달이 안전. 컬럼 DROP 후에는 이 라인 제거.
+    // label (ko) 은 NOT NULL — 빈 문자열로 초기화. label_en/jp 는 현재 탭 언어일
+    // 때만 빈 문자열로 채우고 그 외는 null (어드민이 각 탭에서 따로 입력).
     const { data, error } = await supabase
       .from("copyright_rules")
       .insert({
         label: "",
+        label_en: locale === "en" ? "" : null,
+        label_jp: locale === "jp" ? "" : null,
         allow_personal: false,
         allow_sns: false,
         allow_broadcast: false,
@@ -168,19 +181,22 @@ export default function CopyrightRulesEditor({
     router.refresh();
   }
 
-  async function updateRuleLabel(id: number, label: string) {
+  async function updateRuleLabel(
+    id: number,
+    patch: { label?: string; label_en?: string | null; label_jp?: string | null },
+  ) {
     notifier?.notifySaving();
     const supabase = createClient();
     const { error } = await supabase
       .from("copyright_rules")
-      .update({ label })
+      .update(patch)
       .eq("id", id);
     if (error) {
       console.error("[admin/notices/copyright] update label failed:", error.message);
       notifier?.notifyError();
       return;
     }
-    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, label } : r)));
+    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     notifier?.notifySaved();
   }
 
@@ -385,7 +401,8 @@ export default function CopyrightRulesEditor({
                     rule={rule}
                     columns={sortedColumns}
                     valueMap={valueMap}
-                    onUpdateLabel={(label) => updateRuleLabel(rule.id, label)}
+                    locale={locale}
+                    onUpdateLabel={(patch) => updateRuleLabel(rule.id, patch)}
                     onDelete={() => deleteRule(rule.id)}
                     onToggleCell={(columnId, next) =>
                       toggleCell(rule.id, columnId, next)
@@ -517,6 +534,7 @@ function RuleRow({
   rule,
   columns,
   valueMap,
+  locale,
   onUpdateLabel,
   onDelete,
   onToggleCell,
@@ -525,7 +543,12 @@ function RuleRow({
   rule: CopyrightRule;
   columns: CopyrightColumn[];
   valueMap: Map<string, boolean>;
-  onUpdateLabel: (label: string) => void;
+  locale: Language;
+  onUpdateLabel: (patch: {
+    label?: string;
+    label_en?: string | null;
+    label_jp?: string | null;
+  }) => void;
   onDelete: () => void;
   onToggleCell: (columnId: number, next: boolean) => void;
   disabled: boolean;
@@ -539,16 +562,29 @@ function RuleRow({
     isDragging,
   } = useSortable({ id: rule.id });
 
-  const [label, setLabel] = useState(rule.label);
+  // 현재 탭 언어에 해당하는 라벨 컬럼만 편집. ko 는 NOT NULL, en/jp 는 NULL 허용.
+  const labelCol = localeRuleLabelColumn(locale);
+  const initialLabel = (rule[labelCol] as string | null) ?? "";
+  const [label, setLabel] = useState(initialLabel);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => setLabel(rule.label), [rule.id, rule.label]);
+  useEffect(() => setLabel(initialLabel), [rule.id, initialLabel]);
+
+  function commit(next: string) {
+    if (labelCol === "label") {
+      onUpdateLabel({ label: next });
+    } else if (labelCol === "label_en") {
+      onUpdateLabel({ label_en: next.trim() === "" ? null : next });
+    } else {
+      onUpdateLabel({ label_jp: next.trim() === "" ? null : next });
+    }
+  }
 
   function scheduleLabelSave(next: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      if (next !== rule.label) onUpdateLabel(next);
+      if (next !== initialLabel) commit(next);
     }, SAVE_DEBOUNCE_MS);
   }
 
@@ -585,9 +621,10 @@ function RuleRow({
             if (debounceRef.current) {
               clearTimeout(debounceRef.current);
               debounceRef.current = null;
-              if (label !== rule.label) onUpdateLabel(label);
+              if (label !== initialLabel) commit(label);
             }
           }}
+          aria-label={`행 이름 (${locale.toUpperCase()})`}
           disabled={disabled}
         />
       </td>

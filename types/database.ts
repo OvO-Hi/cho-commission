@@ -177,7 +177,12 @@ export type Live2DTypeItem = {
 // (UI 전환 안정화 후 별도 PR 에서 DROP)
 export type CopyrightRule = {
   id: number;
+  // 기존 단일 `label` 컬럼은 ko 라벨 (NOT NULL). 마이그레이션 006 으로
+  // label_en / label_jp 가 추가됨 (둘 다 nullable). copyright_columns 와
+  // 같은 멀티컬럼 패턴.
   label: string;
+  label_en: string | null;
+  label_jp: string | null;
   /** @deprecated 마이그레이션 001 이후 copyright_rule_values 사용. 컬럼은 호환용으로만 잔존. */
   allow_personal: boolean;
   /** @deprecated */
