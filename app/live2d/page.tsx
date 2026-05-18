@@ -40,7 +40,8 @@ export default async function Live2DPage() {
   const [
     slotsRes,
     openSetting,
-    priceItems,
+    liveMains,
+    liveAddons,
     processSteps,
     types,
     typeItemsRes,
@@ -62,12 +63,29 @@ export default async function Live2DPage() {
       },
       locale,
     ),
+    // 메인 가격과 추가금을 별도 쿼리로 분리. fetchListWithFallback 는 list 전체
+    // 단위로 fallback 하므로 (메인은 EN 있고 추가금만 EN 없는 상태에서) 합쳐
+    // fetch 하면 추가금이 fallback 분기를 못 타고 사라짐.
     fetchListWithFallback(
       async (lang) => {
         const res = await supabase
           .from("price_items")
           .select("*")
           .eq("category", "live2d")
+          .eq("is_addon", false)
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("price_items")
+          .select("*")
+          .eq("category", "live2d")
+          .eq("is_addon", true)
           .eq("language", lang)
           .order("order_num", { ascending: true });
         return res.data ?? [];
@@ -111,8 +129,6 @@ export default async function Live2DPage() {
     ...t,
     items: allTypeItems.filter((item) => item.type_id === t.id),
   }));
-  const liveMains = priceItems.filter((i) => !i.is_addon);
-  const liveAddons = priceItems.filter((i) => i.is_addon);
 
   const slotState = (slotsRes.data ?? []).map((s) => s.is_filled);
   // 설정이 없으면 'open' 으로 간주(기본 열림). 명시적으로 'false' 일 때만 닫힘.
@@ -240,7 +256,7 @@ export default async function Live2DPage() {
                         </p>
                         {main.description && (
                           <p className="l2d-pricecard-base">
-                            ({main.description} 기준)
+                            ({main.description})
                           </p>
                         )}
                       </div>

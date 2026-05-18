@@ -40,7 +40,14 @@ export default async function IllustPage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
 
-  const [slotsRes, openSetting, priceItems, processSteps] = await Promise.all([
+  const [
+    slotsRes,
+    openSetting,
+    broadcastMains,
+    commercialMains,
+    illustAddons,
+    processSteps,
+  ] = await Promise.all([
     supabase
       .from("slots")
       .select("is_filled,slot_number")
@@ -58,12 +65,44 @@ export default async function IllustPage() {
       },
       locale,
     ),
+    // 가격 그룹(방송용 메인 / 상업용 메인 / 추가금)을 각각 별도 쿼리로 분리.
+    // fetchListWithFallback 가 list 전체 단위 fallback 이라, 합쳐서 fetch 하면
+    // 한 그룹만 비어있는 locale 에서 그 그룹이 KO fallback 분기를 못 타고 사라짐.
     fetchListWithFallback(
       async (lang) => {
         const res = await supabase
           .from("price_items")
           .select("*")
           .eq("category", "illust")
+          .eq("is_addon", false)
+          .eq("subcategory", "broadcast")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("price_items")
+          .select("*")
+          .eq("category", "illust")
+          .eq("is_addon", false)
+          .eq("subcategory", "commercial")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("price_items")
+          .select("*")
+          .eq("category", "illust")
+          .eq("is_addon", true)
           .eq("language", lang)
           .order("order_num", { ascending: true });
         return res.data ?? [];
@@ -83,14 +122,6 @@ export default async function IllustPage() {
       locale,
     ),
   ]);
-  // 메인은 subcategory 별로 그룹화 (broadcast / commercial). 추가금은 공통.
-  const broadcastMains = priceItems.filter(
-    (i) => !i.is_addon && i.subcategory === "broadcast",
-  );
-  const commercialMains = priceItems.filter(
-    (i) => !i.is_addon && i.subcategory === "commercial",
-  );
-  const illustAddons = priceItems.filter((i) => i.is_addon);
 
   const tierCards = [
     {
