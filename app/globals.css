@@ -1026,6 +1026,35 @@ a {
   .notice-section-title {
     font-size: 1.25rem;
   }
+
+  /* 저작권 표 — 모바일에서 컬럼이 좁아지면 헤더 텍스트("SNS 업로드", "굿즈 및 판매")
+     가 글자 단위로 wrap 돼 가독성이 나쁘다. min-width 로 한 줄 폭을 확보하고,
+     화면 폭 초과분은 좌우 가로 스크롤로 보게 한다. */
+  .notice-table-wrap {
+    -webkit-overflow-scrolling: touch;
+    /* 우측 fade hint — 콘텐츠가 더 있다는 신호. 표 끝까지 스크롤해도 fade 가
+       남는 살짝의 어색함이 있지만, 가독성/스와이프 인지가 더 중요. */
+    mask-image: linear-gradient(
+      to right,
+      black calc(100% - 24px),
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      black calc(100% - 24px),
+      transparent
+    );
+  }
+
+  .notice-table {
+    /* 5컬럼 헤더가 모두 한 줄에 들어가는 최소 폭. */
+    min-width: 520px;
+  }
+
+  .notice-table thead th,
+  .notice-table tbody th {
+    white-space: nowrap;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
