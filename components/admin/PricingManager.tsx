@@ -38,6 +38,7 @@ const PRICE_EDITABLE_FIELDS = [
   "price",
   "description",
   "is_approx",
+  "main_type",
 ] as const;
 
 const CATEGORIES: { id: CommissionCategory; label: string }[] = [
@@ -59,10 +60,12 @@ type Group = {
   // 새 항목 INSERT 시 기본값.
   newItemDefaults: () => Pick<
     PriceItem,
-    "category" | "is_addon" | "subcategory"
+    "category" | "is_addon" | "subcategory" | "main_type"
   >;
   // 추가금 그룹은 is_approx 토글 노출.
   showApprox: boolean;
+  // Live2D 추가금 그룹만 main_type (illust/rigging) 드롭다운 노출.
+  showMainType: boolean;
 };
 
 export default function PricingManager({
@@ -116,8 +119,10 @@ export default function PricingManager({
             category: "live2d",
             is_addon: false,
             subcategory: null,
+            main_type: null,
           }),
           showApprox: false,
+          showMainType: false,
         },
         {
           id: "live2d-addon",
@@ -127,8 +132,10 @@ export default function PricingManager({
             category: "live2d",
             is_addon: true,
             subcategory: null,
+            main_type: "illust",
           }),
           showApprox: true,
+          showMainType: true,
         },
       ];
     }
@@ -144,8 +151,10 @@ export default function PricingManager({
           category: "illust",
           is_addon: false,
           subcategory: "broadcast",
+          main_type: null,
         }),
         showApprox: false,
+        showMainType: false,
       },
       {
         id: "illust-commercial",
@@ -158,8 +167,10 @@ export default function PricingManager({
           category: "illust",
           is_addon: false,
           subcategory: "commercial",
+          main_type: null,
         }),
         showApprox: false,
+        showMainType: false,
       },
       {
         id: "illust-addon",
@@ -169,8 +180,10 @@ export default function PricingManager({
           category: "illust",
           is_addon: true,
           subcategory: null,
+          main_type: null,
         }),
         showApprox: true,
+        showMainType: false,
       },
     ];
   }, [activeCategory]);
@@ -243,6 +256,7 @@ export default function PricingManager({
             price: it.price,
             description: it.description,
             is_approx: it.is_approx,
+            main_type: it.main_type,
           })
           .eq("id", it.id),
       ),
@@ -332,6 +346,7 @@ export default function PricingManager({
               is_addon: item.is_addon,
               description,
               subcategory: item.subcategory,
+              main_type: item.main_type,
               is_approx: item.is_approx,
               order_num: item.order_num,
               language: lang,
@@ -383,6 +398,8 @@ export default function PricingManager({
       })
       .select()
       .single();
+    // newItemDefaults 가 main_type 을 명시한 그룹 (live2d 추가금) 은 그 값 사용,
+    // 그 외 그룹은 컬럼이 DB default (NULL) 로 채워짐. 별도 처리 불필요.
 
     if (error || !data) {
       console.error("[admin/pricing] add failed:", error?.message);
@@ -578,6 +595,7 @@ function PricingGroup({
                 key={item.id}
                 item={item}
                 showApprox={group.showApprox}
+                showMainType={group.showMainType}
                 onUpdateLocal={(patch) => onUpdateLocal(item.id, patch)}
                 onDelete={() => onDelete(item)}
               />
@@ -600,11 +618,13 @@ function PricingGroup({
 function PricingRow({
   item,
   showApprox,
+  showMainType,
   onUpdateLocal,
   onDelete,
 }: {
   item: PriceItem;
   showApprox: boolean;
+  showMainType: boolean;
   onUpdateLocal: (
     patch: Partial<Omit<PriceItem, "id" | "created_at">>,
   ) => void;
@@ -673,6 +693,25 @@ function PricingRow({
         placeholder="설명 (선택)"
         onChange={(e) => onUpdateLocal({ description: e.target.value })}
       />
+
+      {showMainType && (
+        // Live2D 추가금에만 노출. 'illust' / 'rigging' / 공통(null) 중 선택.
+        <select
+          className="admin-form-input admin-pricing-maintype"
+          value={item.main_type ?? ""}
+          aria-label="메인 타입"
+          onChange={(e) => {
+            const v = e.target.value;
+            onUpdateLocal({
+              main_type: v === "" ? null : (v as "illust" | "rigging"),
+            });
+          }}
+        >
+          <option value="">공통</option>
+          <option value="illust">Illustration type</option>
+          <option value="rigging">Illustration + rigging type</option>
+        </select>
+      )}
 
       <button
         type="button"

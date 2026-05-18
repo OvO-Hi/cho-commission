@@ -70,6 +70,11 @@ export type PriceItem = {
   // Illust 가격 그룹 구분용. Live2D 는 null. Illust 는 'broadcast' | 'commercial'.
   // is_addon=true 인 공통 추가금은 null.
   subcategory: string | null;
+  // Live2D 의 메인 타입 묶음. 마이그레이션 007 로 추가.
+  //   'illust'  : Illustration type 전용 (메인 또는 그 추가금)
+  //   'rigging' : Illustration + rigging type 전용 (메인 또는 그 추가금)
+  //   null      : Illust 카테고리 또는 메인 타입 무관 row
+  main_type: "illust" | "rigging" | null;
   // 추가금에서 "약 ~원" 표기 (UI 에서 가격 뒤에 "~" 붙임).
   is_approx: boolean;
   language: Language;

@@ -1,4 +1,4 @@
-// One-shot inspect: copyright_rules KO labels.
+// One-shot: live2d main rows (all languages) + KO addon rows for migration design.
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
@@ -18,16 +18,21 @@ const supabase = createClient(
 );
 
 const { data, error } = await supabase
-  .from("copyright_rules")
-  .select("id, label, order_num")
-  .order("order_num", { ascending: true });
+  .from("price_items")
+  .select("id, item_name, price, is_addon, language, translation_key, order_num")
+  .eq("category", "live2d")
+  .eq("is_addon", false)
+  .order("translation_key", { ascending: true })
+  .order("language", { ascending: true });
 
 if (error) {
   console.error("Query failed:", error);
   process.exit(1);
 }
 
-console.log(`Total rows: ${data.length}\n`);
+console.log(`Total live2d main rows (all langs): ${data.length}\n`);
 for (const r of data) {
-  console.log(`order=${r.order_num} id=${r.id} | "${r.label}"`);
+  console.log(
+    `${r.language} | order=${r.order_num} | "${r.item_name}" | tk=${r.translation_key?.slice(0, 8)}`,
+  );
 }

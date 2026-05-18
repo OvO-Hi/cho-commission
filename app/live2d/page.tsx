@@ -15,6 +15,7 @@ import {
 } from "@/lib/i18n/fetchWithFallback";
 import { formatPrice } from "@/lib/i18n/formatPrice";
 import { getCurrentLocale } from "@/lib/i18n/locale";
+import type { Language } from "@/types/database";
 
 // 어드민의 슬롯/오픈 설정 변경이 즉시 반영되도록 캐싱 비활성화.
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ export const dynamic = "force-dynamic";
 // 가격은 어드민 페이지(/admin/dashboard/pricing) 에서 관리. price_items 테이블 fetch.
 
 // 작업 과정 / 작업 타입 안내는 어드민 페이지(/admin/dashboard/process) 에서 관리.
+
+// 메인 카드 안 추가금 섹션 부제목 — 페이지 locale 기준 분기 (formatPrice 와 다름).
+const ADDON_LABEL: Record<Language, string> = {
+  ko: "추가금",
+  en: "Add-ons",
+  jp: "オプション",
+};
 
 // 폼이 보일 수 있는 4가지 상태.
 type FormStatus = "open" | "closed" | "no-slots" | "all-filled";
@@ -40,7 +48,8 @@ export default async function Live2DPage() {
     slotsRes,
     openSetting,
     liveMains,
-    liveAddons,
+    liveAddonsIllust,
+    liveAddonsRigging,
     processSteps,
     types,
     typeItemsRes,
@@ -62,9 +71,9 @@ export default async function Live2DPage() {
       },
       locale,
     ),
-    // 메인 가격과 추가금을 별도 쿼리로 분리. fetchListWithFallback 는 list 전체
-    // 단위로 fallback 하므로 (메인은 EN 있고 추가금만 EN 없는 상태에서) 합쳐
-    // fetch 하면 추가금이 fallback 분기를 못 타고 사라짐.
+    // 메인 가격 + 메인 타입별 추가금 (illust/rigging) 을 각각 별도 fetch.
+    // fetchListWithFallback 가 list 전체 단위 fallback 이라 합쳐 fetch 하면
+    // 한 그룹만 비어있는 locale 에서 그 그룹이 KO fallback 분기를 못 타고 사라짐.
     fetchListWithFallback(
       async (lang) => {
         const res = await supabase
@@ -85,6 +94,21 @@ export default async function Live2DPage() {
           .select("*")
           .eq("category", "live2d")
           .eq("is_addon", true)
+          .eq("main_type", "illust")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("price_items")
+          .select("*")
+          .eq("category", "live2d")
+          .eq("is_addon", true)
+          .eq("main_type", "rigging")
           .eq("language", lang)
           .order("order_num", { ascending: true });
         return res.data ?? [];
@@ -240,52 +264,63 @@ export default async function Live2DPage() {
               <p>가격 정보가 준비 중입니다.</p>
             </div>
           ) : (
-            <>
-              <div className="l2d-grid-2">
-                {liveMains.map((main) => {
-                  return (
-                    <article
-                      key={main.id}
-                      className="l2d-card l2d-pricecard"
-                    >
-                      <h3 className="l2d-pricecard-title">{main.item_name}</h3>
-                      <div className="l2d-pricecard-header">
-                        <p className="l2d-pricecard-amount">
-                          {formatPrice(main.price, main.language)}
+            <div className="l2d-grid-2">
+              {liveMains.map((main) => {
+                // 메인 카드의 main_type 에 맞는 추가금 묶기. 일러스트/리깅 외
+                // (main_type=null 등) 의 메인 row 는 추가금 섹션 자체를 노출 안 함.
+                const cardAddons =
+                  main.main_type === "illust"
+                    ? liveAddonsIllust
+                    : main.main_type === "rigging"
+                      ? liveAddonsRigging
+                      : [];
+                return (
+                  <article key={main.id} className="l2d-card l2d-pricecard">
+                    <h3 className="l2d-pricecard-title">{main.item_name}</h3>
+                    <div className="l2d-pricecard-header">
+                      <p className="l2d-pricecard-amount">
+                        {formatPrice(main.price, main.language)}
+                      </p>
+                      {main.description && (
+                        <p className="l2d-pricecard-base">
+                          ({main.description})
                         </p>
-                        {main.description && (
-                          <p className="l2d-pricecard-base">
-                            ({main.description})
-                          </p>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                      )}
+                    </div>
 
-              {liveAddons.length > 0 && (
-                <article className="l2d-card l2d-pricecard l2d-pricecard-addons">
-                  <h3 className="l2d-pricecard-title">추가금 옵션</h3>
-                  <ul className="l2d-pricecard-list">
-                    {liveAddons.map((addon) => (
-                      <li key={addon.id} className="l2d-pricecard-item">
-                        <span className="l2d-pricecard-label">
-                          {addon.item_name}
-                          {addon.description ? ` (${addon.description})` : ""}
-                        </span>
-                        <span className="l2d-pricecard-add">
-                          {formatPrice(addon.price, addon.language, {
-                            isAddon: true,
-                            isApprox: addon.is_approx,
-                          })}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              )}
-            </>
+                    {cardAddons.length > 0 && (
+                      <>
+                        <hr className="l2d-pricecard-divider" />
+                        <h4 className="l2d-pricecard-addon-title">
+                          {ADDON_LABEL[locale]}
+                        </h4>
+                        <ul className="l2d-pricecard-list">
+                          {cardAddons.map((addon) => (
+                            <li
+                              key={addon.id}
+                              className="l2d-pricecard-item"
+                            >
+                              <span className="l2d-pricecard-label">
+                                {addon.item_name}
+                                {addon.description
+                                  ? ` (${addon.description})`
+                                  : ""}
+                              </span>
+                              <span className="l2d-pricecard-add">
+                                {formatPrice(addon.price, addon.language, {
+                                  isAddon: true,
+                                  isApprox: addon.is_approx,
+                                })}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
           )}
         </section>
         </ScrollReveal>
