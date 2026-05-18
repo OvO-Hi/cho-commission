@@ -4101,6 +4101,9 @@ a {
   font-weight: 500;
   color: transparent;
   min-height: 20px;
+  /* 모바일에서 toolbar 우측 콘텐츠 폭이 좁아져 "저장됨" / "저장 중..." 이 글자
+     단위로 wrap 되는 문제 방지. */
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 
