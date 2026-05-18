@@ -563,9 +563,8 @@ a {
   .main-split {
     flex-direction: column;
     height: auto;
-    /* 상단 바와 로고 사이 숨 공간 (28 → 56 → 96). 56 도 여전히 빠듯해 보였음.
-       하단은 그대로. */
-    padding: 96px 0 36px;
+    /* 상단 바와 로고 사이 숨 공간 (28 → 56 → 96 → 80). 96 은 과해서 16px 줄임. */
+    padding: 80px 0 36px;
     /* SNS 와 배너 사이 분리감 (28 → 44). */
     gap: 44px;
   }
