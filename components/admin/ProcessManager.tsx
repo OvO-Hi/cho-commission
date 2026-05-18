@@ -20,11 +20,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+import AdminSaveBar from "@/components/admin/AdminSaveBar";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import {
   SaveStateContext,
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
+import { setDirtyState } from "@/lib/admin/dirty-store";
 import { createClient } from "@/lib/supabase/client";
 import { translateText } from "@/lib/i18n/translate-client";
 import type {
@@ -157,6 +159,17 @@ export default function ProcessManager({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
+
+  // dirty 상태 + 저장 콜백을 글로벌 store 에 등록 — AdminSidebar navigation guard 용.
+  useEffect(() => {
+    if (!dirty) {
+      setDirtyState(null);
+      return;
+    }
+    setDirtyState({ count: dirtyCount, save: handleSaveAll });
+    return () => setDirtyState(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, dirtyCount]);
 
   async function handleSaveAll() {
     if (!dirty) return;
@@ -628,16 +641,13 @@ export default function ProcessManager({
             </p>
           </div>
           <div
-            className={`admin-samples-save-indicator admin-samples-save-${saveState}${
-              saveState === "idle" && dirty ? " admin-samples-save-dirty" : ""
-            }`}
+            className={`admin-samples-save-indicator admin-samples-save-${saveState}`}
             aria-live="polite"
           >
             {saveState === "saving" && "저장 중..."}
             {saveState === "saved" && "✓ 저장됨"}
             {saveState === "error" && "저장 실패"}
-            {saveState === "idle" && dirty &&
-              `● 저장되지 않은 변경사항 ${dirtyCount}개`}
+            {/* dirty 인디케이터는 하단 AdminSaveBar 로 이동 */}
           </div>
         </div>
 
@@ -680,17 +690,8 @@ export default function ProcessManager({
           />
         )}
 
-        <div className="admin-notices-save-bar">
-          <button
-            type="button"
-            className="admin-action-btn admin-action-btn-primary"
-            onClick={handleSaveAll}
-            disabled={!dirty}
-          >
-            {dirty ? `저장 (${dirtyCount})` : "저장"}
-          </button>
-        </div>
       </div>
+      <AdminSaveBar dirtyCount={dirtyCount} onSave={handleSaveAll} />
     </SaveStateContext.Provider>
   );
 }

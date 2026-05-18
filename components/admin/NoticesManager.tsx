@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import AdminSaveBar from "@/components/admin/AdminSaveBar";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import {
   SaveStateContext,
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
+import { setDirtyState } from "@/lib/admin/dirty-store";
 import { createClient } from "@/lib/supabase/client";
 import { translateText } from "@/lib/i18n/translate-client";
 import type {
@@ -115,10 +117,7 @@ export default function NoticesManager({
     [],
   );
 
-  // 페이지 떠나려고 할 때 dirty 면 브라우저 경고. e.returnValue 는 빈 문자열이
-  // 일부 브라우저(특히 구형 Chrome)에서 falsy 로 무시되어 prompt 가 안 뜨는 경우가
-  // 있어 truthy 문자열을 명시. 현대 Chrome 은 이 문자열을 실제로 표시하지 않고
-  // 자체 generic 메시지를 띄우지만, 값이 truthy 여야 prompt 가 트리거된다.
+  // 페이지 떠나려고 할 때 dirty 면 브라우저 경고. truthy 문자열 필요.
   useEffect(() => {
     if (!dirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -129,6 +128,18 @@ export default function NoticesManager({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
+
+  // dirty 상태 + 저장 콜백을 글로벌 store 에 등록 — AdminSidebar 가 메뉴 클릭 시 읽는다.
+  // 매 렌더마다 handleSaveAll 이 새 클로저라 dirty/dirtySections 변화 때 갱신.
+  useEffect(() => {
+    if (!dirty) {
+      setDirtyState(null);
+      return;
+    }
+    setDirtyState({ count: dirtySections.length, save: handleSaveAll });
+    return () => setDirtyState(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, dirtySections.length]);
 
   function setSection(section: NoticeSection, html: string) {
     setDraft((prev) => ({ ...prev, [section]: html }));
@@ -330,16 +341,13 @@ export default function NoticesManager({
             </p>
           </div>
           <div
-            className={`admin-samples-save-indicator admin-samples-save-${saveState}${
-              saveState === "idle" && dirty ? " admin-samples-save-dirty" : ""
-            }`}
+            className={`admin-samples-save-indicator admin-samples-save-${saveState}`}
             aria-live="polite"
           >
             {saveState === "saving" && "저장 중..."}
             {saveState === "saved" && "✓ 저장됨"}
             {saveState === "error" && "저장 실패"}
-            {saveState === "idle" && dirty &&
-              `● 저장되지 않은 변경사항 ${dirtySections.length}개`}
+            {/* dirty 인디케이터는 하단 AdminSaveBar 로 이동 */}
           </div>
         </div>
 
@@ -359,17 +367,6 @@ export default function NoticesManager({
             );
           })}
 
-          <div className="admin-notices-save-bar">
-            <button
-              type="button"
-              className="admin-action-btn admin-action-btn-primary"
-              onClick={handleSaveAll}
-              disabled={!dirty || busy}
-            >
-              {busy ? "저장 중..." : "저장"}
-            </button>
-          </div>
-
           {/* 저작권 범위 (별도 테이블 기반 표 편집기) */}
           <section className="admin-notices-section">
             <h2 className="admin-notices-section-title">저작권 범위</h2>
@@ -382,6 +379,11 @@ export default function NoticesManager({
           </section>
         </div>
       </div>
+      <AdminSaveBar
+        dirtyCount={dirtySections.length}
+        busy={busy}
+        onSave={handleSaveAll}
+      />
     </SaveStateContext.Provider>
   );
 }

@@ -2294,6 +2294,15 @@ a {
 
 .admin-main {
   padding: 32px;
+  /* CSS Grid 자식의 default min-width 는 콘텐츠 폭(auto). notices 페이지의
+     RichTextEditor 가 가진 내재 폭 때문에 admin-main 이 좁아지지 않는 문제를
+     해결하기 위해 명시적으로 0. 가격/작업 과정 페이지는 안의 row 들이 자체
+     flex-shrink 가능해서 영향 없었음. */
+  min-width: 0;
+}
+
+.admin-main-card {
+  min-width: 0;
 }
 
 .admin-main-card {
@@ -4634,11 +4643,163 @@ a {
 }
 
 
-/* 어드민 수동저장 — 매니저 하단의 저장 버튼 영역. */
+/* 어드민 수동저장 — 매니저 하단의 저장 버튼 영역. (Deprecated — AdminSaveBar 로 통합) */
 .admin-notices-save-bar {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid #efefef;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   AdminSaveBar — 어드민 매니저 공통 하단 고정 저장 bar.
+   dirtyCount > 0 일 때 슬라이드업으로 등장. 사이드바(240px) 만큼 좌측을 비움.
+   ───────────────────────────────────────────────────────────────────── */
+.admin-save-bar {
+  position: fixed;
+  bottom: 0;
+  left: 240px; /* 사이드바 폭. 모바일에서는 grid-template-columns: 1fr 라 좌측 0. */
+  right: 0;
+  /* z-index 위계 (명시적):
+       SaveBar 50  <  navigation guard overlay 100  <  guard card 101
+     SaveBar 가 모달 위로 새지 않도록 overlay 가 항상 더 위. */
+  z-index: 50;
+  background: #fff;
+  border-top: 1px solid #e8e8e8;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04);
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+  pointer-events: none;
+}
+
+.admin-save-bar.is-visible {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.admin-save-bar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-save-bar-msg {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #c89a1f;
+}
+
+@media (max-width: 720px) {
+  .admin-save-bar {
+    left: 0; /* 모바일 — 사이드바가 상단으로 collapse 됨 */
+  }
+  .admin-save-bar-inner {
+    padding: 10px 16px;
+  }
+}
+
+/* 페이지 콘텐츠가 bar 에 가려지지 않도록 admin-main 에 padding-bottom 확보. */
+.admin-main {
+  padding-bottom: 96px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   AdminNavigationGuard — 사이드바 메뉴 클릭 시 dirty 면 띄우는 3택 모달.
+   ───────────────────────────────────────────────────────────────────── */
+.admin-nav-guard-overlay {
+  position: fixed;
+  inset: 0;
+  /* SaveBar(50) 위, card(101) 아래. */
+  z-index: 100;
+  /* 페이지 콘텐츠를 확실히 가리기 위해 0.4 → 0.5 로 강화. */
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-nav-guard-card {
+  position: relative;
+  z-index: 101;
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-nav-guard-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.admin-nav-guard-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #555;
+}
+
+.admin-nav-guard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.admin-nav-guard-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: var(--text-main);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-nav-guard-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.admin-nav-guard-btn-primary {
+  background: var(--mint-point);
+  color: #fff;
+  border-color: var(--mint-point);
+}
+
+.admin-nav-guard-btn-primary:hover:not(:disabled) {
+  background: #88d061;
+  border-color: #88d061;
+}
+
+.admin-nav-guard-btn-danger {
+  background: #fff;
+  color: #d44;
+  border-color: #f3c5c5;
+}
+
+.admin-nav-guard-btn-danger:hover:not(:disabled) {
+  background: #fff5f5;
+  border-color: #e8a0a0;
+}
+
+.admin-nav-guard-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
