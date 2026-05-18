@@ -15,6 +15,11 @@ import {
 } from "@/lib/i18n/fetchWithFallback";
 import { formatPrice } from "@/lib/i18n/formatPrice";
 import { getCurrentLocale } from "@/lib/i18n/locale";
+import {
+  formatSlotCount,
+  formatSlotItemAria,
+  getPageMessages,
+} from "@/lib/i18n/page-messages";
 import type { Language } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -33,15 +38,15 @@ const SUBCATEGORY_LABEL: Record<Language, Record<"broadcast" | "commercial", str
 
 type FormStatus = "open" | "closed" | "no-slots" | "all-filled";
 
-const STATUS_MESSAGE: Record<Exclude<FormStatus, "open">, string> = {
-  closed: "지금은 신청을 받고 있지 않아요",
-  "no-slots": "모집중인 슬롯이 없어요",
-  "all-filled": "모든 슬롯이 마감되었어요",
-};
-
 export default async function IllustPage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
+  const pageMessages = getPageMessages(locale);
+  const statusMessage: Record<Exclude<FormStatus, "open">, string> = {
+    closed: pageMessages.status_closed,
+    "no-slots": pageMessages.status_no_slots,
+    "all-filled": pageMessages.status_all_filled,
+  };
 
   const [
     slotsRes,
@@ -156,41 +161,52 @@ export default async function IllustPage() {
     // 페이지마다 별도 namespace 를 두기보다 한 세트를 재사용하는 게 유지보수에 효율적.
     <main className="l2d-shell">
       <ScrollProgress />
-      <BackToTopButton />
-      <CommissionFormCTA targetId="commission-form" />
+      <BackToTopButton locale={locale} />
+      <CommissionFormCTA targetId="commission-form" locale={locale} />
       <div className="l2d-container">
         <div className="l2d-topbar">
-          <Link href="/" className="l2d-back" aria-label="메인으로 돌아가기">
-            ← 메인으로
+          <Link
+            href="/"
+            className="l2d-back"
+            aria-label={pageMessages.back_to_main_aria}
+          >
+            {pageMessages.back_to_main}
           </Link>
           <LanguageToggle current={locale} />
         </div>
 
         <header className="l2d-hero">
           <h1 className="l2d-hero-title">Illust</h1>
-          <p className="l2d-hero-sub">일러스트 커미션 안내</p>
+          <p className="l2d-hero-sub">{pageMessages.illust_subtitle}</p>
         </header>
 
         {/* 샘플 CTA + 슬롯 */}
         <div className="l2d-sample-cta">
           <Link href="/illust/sample" className="l2d-sample-btn">
-            샘플 보러가기 →
+            {pageMessages.view_samples}
           </Link>
 
           {slotState.length > 0 && (
             <div className="l2d-slot-group">
               <div className="l2d-slot-headline">
-                <span className="l2d-slot-label">신청 가능 슬롯</span>
-                <span className="l2d-slot-badge">{emptyCount}개</span>
+                <span className="l2d-slot-label">
+                  {pageMessages.available_slots}
+                </span>
+                <span className="l2d-slot-badge">
+                  {formatSlotCount(locale, emptyCount)}
+                </span>
               </div>
-              <ul className="l2d-slot-list" aria-label="신청 가능 슬롯 현황">
+              <ul
+                className="l2d-slot-list"
+                aria-label={pageMessages.slot_status_list_aria}
+              >
                 {slotState.map((isFilled, idx) => (
                   <li
                     key={idx}
                     className={`l2d-slot${isFilled ? " l2d-slot-filled" : " l2d-slot-empty"}`}
-                    aria-label={`슬롯 ${idx + 1}: ${isFilled ? "닫힘" : "모집중"}`}
+                    aria-label={formatSlotItemAria(locale, idx + 1, isFilled)}
                   >
-                    {isFilled ? "닫힘" : "모집중"}
+                    {isFilled ? pageMessages.slot_closed : pageMessages.slot_open}
                   </li>
                 ))}
               </ul>
@@ -201,11 +217,11 @@ export default async function IllustPage() {
         {/* 1. 작업 과정 */}
         <ScrollReveal>
           <section className="l2d-section">
-            <h2 className="l2d-section-title">작업 과정</h2>
+            <h2 className="l2d-section-title">{pageMessages.section_process}</h2>
             <div className="l2d-card">
               <ProcessTimeline steps={processSteps} />
               <p className="l2d-timeline-note">
-                * 총 2회 수정이 가능하니 참고해주시길 바랍니다.
+                {pageMessages.process_revision_note}
               </p>
             </div>
           </section>
@@ -214,10 +230,10 @@ export default async function IllustPage() {
         {/* 2. 가격 안내 — subcategory 별 카드(방송용/상업용). 어드민 가격 관리에서 관리. */}
         <ScrollReveal>
         <section className="l2d-section">
-          <h2 className="l2d-section-title">가격 안내</h2>
+          <h2 className="l2d-section-title">{pageMessages.section_price}</h2>
           {tierCards.length === 0 ? (
             <div className="l2d-card l2d-form-placeholder">
-              <p>가격 정보가 준비 중입니다.</p>
+              <p>{pageMessages.price_preparing}</p>
             </div>
           ) : (
             <div className="l2d-grid-2">
@@ -277,14 +293,14 @@ export default async function IllustPage() {
         {/* 3. 신청서 작성. id="commission-form" 은 CommissionFormCTA 의 IntersectionObserver 타깃. */}
         <ScrollReveal>
           <section id="commission-form" className="l2d-section">
-            <h2 className="l2d-section-title">신청서 작성</h2>
+            <h2 className="l2d-section-title">{pageMessages.section_form}</h2>
             {formStatus === "open" ? (
               <NoticeAgreementGate locale={locale}>
                 <IllustCommissionForm locale={locale} />
               </NoticeAgreementGate>
             ) : (
               <div className="l2d-card l2d-form-placeholder">
-                <p>{STATUS_MESSAGE[formStatus]}</p>
+                <p>{statusMessage[formStatus]}</p>
               </div>
             )}
           </section>

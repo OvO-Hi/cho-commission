@@ -2,13 +2,18 @@
 
 import { useEffect, useState } from "react";
 
+import { getPageMessages } from "@/lib/i18n/page-messages";
+import type { Language } from "@/types/database";
+
 type Props = {
   // 신청폼 섹션의 element id. 이 요소가 뷰포트 안에 있으면 CTA 자동 숨김.
   targetId: string;
+  locale: Language;
 };
 
-export default function CommissionFormCTA({ targetId }: Props) {
+export default function CommissionFormCTA({ targetId, locale }: Props) {
   const [visible, setVisible] = useState(false);
+  const messages = getPageMessages(locale);
 
   useEffect(() => {
     const target = document.getElementById(targetId);
@@ -35,9 +40,9 @@ export default function CommissionFormCTA({ targetId }: Props) {
       type="button"
       className={`form-cta${visible ? " form-cta-visible" : ""}`}
       onClick={handleClick}
-      aria-label="신청서로 이동"
+      aria-label={messages.form_cta_aria}
     >
-      📝 신청서 작성하기 ↓
+      {messages.form_cta_text}
     </button>
   );
 }

@@ -8,6 +8,7 @@ import { sanitizeRich } from "@/lib/utils/sanitize";
 import { createClient } from "@/lib/supabase/server";
 import { fetchListWithFallback } from "@/lib/i18n/fetchWithFallback";
 import { getCurrentLocale } from "@/lib/i18n/locale";
+import { getPageMessages, type PageMessages } from "@/lib/i18n/page-messages";
 import type {
   CopyrightColumn,
   CopyrightRule,
@@ -18,12 +19,16 @@ import type {
 
 export const dynamic = "force-dynamic";
 
-const RICH_SECTIONS: { key: NoticeSection; title: string }[] = [
-  { key: "intro", title: "자기소개" },
-  { key: "notice", title: "공지사항" },
-  { key: "guide", title: "저작권 범위" },
-  { key: "refund", title: "환불 안내" },
-];
+function getRichSections(
+  m: PageMessages,
+): { key: NoticeSection; title: string }[] {
+  return [
+    { key: "intro", title: m.notice_section_intro },
+    { key: "notice", title: m.notice_section_notice },
+    { key: "guide", title: m.notice_section_copyright },
+    { key: "refund", title: m.notice_section_refund },
+  ];
+}
 
 // 현재 노출 언어에서 열 라벨 추출. label_xx 가 NULL/빈문자열이면 label_ko 로 fallback.
 function pickColumnLabel(column: CopyrightColumn, locale: Language): string {
@@ -42,6 +47,8 @@ function pickRuleLabel(rule: CopyrightRule, locale: Language): string {
 export default async function NoticePage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
+  const pageMessages = getPageMessages(locale);
+  const richSections = getRichSections(pageMessages);
 
   const [noticesData, rulesRes, columnsRes, valuesRes] = await Promise.all([
     fetchListWithFallback(
@@ -90,23 +97,25 @@ export default async function NoticePage() {
   return (
     <main className="notice-shell">
       <ScrollProgress />
-      <BackToTopButton />
+      <BackToTopButton locale={locale} />
       <div className="notice-container">
         <div className="notice-topbar">
-          <Link href="/" className="notice-back" aria-label="메인으로 돌아가기">
-            ← 메인으로
+          <Link
+            href="/"
+            className="notice-back"
+            aria-label={pageMessages.back_to_main_aria}
+          >
+            {pageMessages.back_to_main}
           </Link>
           <LanguageToggle current={locale} />
         </div>
 
         <header className="notice-hero">
           <h1 className="notice-hero-title">Notice</h1>
-          <p className="notice-hero-sub">
-            커미션 신청 전 꼭 확인해 주세요.
-          </p>
+          <p className="notice-hero-sub">{pageMessages.notice_subtitle}</p>
         </header>
 
-        {RICH_SECTIONS.map(({ key, title }) => {
+        {richSections.map(({ key, title }) => {
           const isGuide = key === "guide";
           const html = sectionMap.get(key) ?? "";
 
@@ -132,7 +141,7 @@ export default async function NoticePage() {
                       }}
                     />
                   ) : (
-                    <p className="notice-empty">준비 중입니다.</p>
+                    <p className="notice-empty">{pageMessages.notice_empty}</p>
                   )}
                 </div>
               </section>
@@ -145,10 +154,10 @@ export default async function NoticePage() {
         <ScrollReveal>
           <div className="notice-cta">
             <Link href="/live2d" className="notice-cta-btn notice-cta-btn-live2d">
-              Live2D 신청하기
+              {pageMessages.notice_apply_live2d}
             </Link>
             <Link href="/illust" className="notice-cta-btn notice-cta-btn-illust">
-              Illust 신청하기
+              {pageMessages.notice_apply_illust}
             </Link>
           </div>
         </ScrollReveal>
@@ -168,8 +177,9 @@ function CopyrightTable({
   values: CopyrightRuleValue[];
   locale: Language;
 }) {
+  const m = getPageMessages(locale);
   if (rules.length === 0 || columns.length === 0) {
-    return <p className="notice-empty">준비 중입니다.</p>;
+    return <p className="notice-empty">{m.notice_empty}</p>;
   }
 
   // (rule_id, column_id) → checked. 미존재 = false (열을 어드민이 새로 추가했지만
@@ -201,14 +211,14 @@ function CopyrightTable({
                     {allowed ? (
                       <span
                         className="notice-mark notice-mark-o"
-                        aria-label="허용"
+                        aria-label={m.notice_cell_yes_aria}
                       >
                         O
                       </span>
                     ) : (
                       <span
                         className="notice-mark notice-mark-x"
-                        aria-label="불가"
+                        aria-label={m.notice_cell_no_aria}
                       >
                         X
                       </span>

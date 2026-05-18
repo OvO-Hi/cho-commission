@@ -5,12 +5,16 @@ import SamplePageRenderer, {
   type SampleBlockWithImages,
 } from "@/components/SamplePageRenderer";
 import ScrollProgress from "@/components/ScrollProgress";
+import { getCurrentLocale } from "@/lib/i18n/locale";
+import { getPageMessages } from "@/lib/i18n/page-messages";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function IllustSamplePage() {
   const supabase = createClient();
+  const locale = await getCurrentLocale();
+  const pageMessages = getPageMessages(locale);
 
   const [blocksRes, imagesRes] = await Promise.all([
     supabase
@@ -45,20 +49,20 @@ export default async function IllustSamplePage() {
   return (
     <main className="l2d-shell">
       <ScrollProgress />
-      <BackToTopButton />
+      <BackToTopButton locale={locale} />
       <div className="l2d-container">
         <div className="l2d-topbar">
           <Link
             href="/illust"
             className="l2d-back"
-            aria-label="신청 페이지로 돌아가기"
+            aria-label={pageMessages.back_to_apply_aria}
           >
-            ← 신청 페이지로 돌아가기
+            {pageMessages.back_to_apply}
           </Link>
         </div>
 
         <header className="l2d-hero l2d-sample-hero">
-          <h1 className="l2d-hero-title">Illust 샘플</h1>
+          <h1 className="l2d-hero-title">{pageMessages.illust_sample_title}</h1>
         </header>
 
         <SamplePageRenderer blocks={withImages} />

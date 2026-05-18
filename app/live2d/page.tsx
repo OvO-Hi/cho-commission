@@ -15,6 +15,11 @@ import {
 } from "@/lib/i18n/fetchWithFallback";
 import { formatPrice } from "@/lib/i18n/formatPrice";
 import { getCurrentLocale } from "@/lib/i18n/locale";
+import {
+  formatSlotCount,
+  formatSlotItemAria,
+  getPageMessages,
+} from "@/lib/i18n/page-messages";
 import type { Language } from "@/types/database";
 
 // 어드민의 슬롯/오픈 설정 변경이 즉시 반영되도록 캐싱 비활성화.
@@ -34,15 +39,15 @@ const ADDON_LABEL: Record<Language, string> = {
 // 폼이 보일 수 있는 4가지 상태.
 type FormStatus = "open" | "closed" | "no-slots" | "all-filled";
 
-const STATUS_MESSAGE: Record<Exclude<FormStatus, "open">, string> = {
-  closed: "지금은 신청을 받고 있지 않아요",
-  "no-slots": "모집중인 슬롯이 없어요",
-  "all-filled": "모든 슬롯이 마감되었어요",
-};
-
 export default async function Live2DPage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
+  const pageMessages = getPageMessages(locale);
+  const statusMessage: Record<Exclude<FormStatus, "open">, string> = {
+    closed: pageMessages.status_closed,
+    "no-slots": pageMessages.status_no_slots,
+    "all-filled": pageMessages.status_all_filled,
+  };
 
   const [
     slotsRes,
@@ -178,19 +183,23 @@ export default async function Live2DPage() {
   return (
     <main className="l2d-shell">
       <ScrollProgress />
-      <BackToTopButton />
-      <CommissionFormCTA targetId="commission-form" />
+      <BackToTopButton locale={locale} />
+      <CommissionFormCTA targetId="commission-form" locale={locale} />
       <div className="l2d-container">
         <div className="l2d-topbar">
-          <Link href="/" className="l2d-back" aria-label="메인으로 돌아가기">
-            ← 메인으로
+          <Link
+            href="/"
+            className="l2d-back"
+            aria-label={pageMessages.back_to_main_aria}
+          >
+            {pageMessages.back_to_main}
           </Link>
           <LanguageToggle current={locale} />
         </div>
 
         <header className="l2d-hero">
           <h1 className="l2d-hero-title">Live2D</h1>
-          <p className="l2d-hero-sub">버츄얼 리깅 커미션 안내</p>
+          <p className="l2d-hero-sub">{pageMessages.live2d_subtitle}</p>
         </header>
 
         {/* 샘플 CTA + 슬롯 현황을 한 줄에 배치.
@@ -198,24 +207,31 @@ export default async function Live2DPage() {
             "안내 콘텐츠를 보기 전에 결과물 확인 / 가용성 확인" 두 핵심 정보를 한 곳에서 노출합니다. */}
         <div className="l2d-sample-cta">
           <Link href="/live2d/sample" className="l2d-sample-btn">
-            샘플 보러가기 →
+            {pageMessages.view_samples}
           </Link>
 
           {/* 슬롯이 0개면 시각화할 데이터가 없어 슬롯 그룹 자체를 숨김. */}
           {slotState.length > 0 && (
             <div className="l2d-slot-group">
               <div className="l2d-slot-headline">
-                <span className="l2d-slot-label">신청 가능 슬롯</span>
-                <span className="l2d-slot-badge">{emptyCount}개</span>
+                <span className="l2d-slot-label">
+                  {pageMessages.available_slots}
+                </span>
+                <span className="l2d-slot-badge">
+                  {formatSlotCount(locale, emptyCount)}
+                </span>
               </div>
-              <ul className="l2d-slot-list" aria-label="신청 가능 슬롯 현황">
+              <ul
+                className="l2d-slot-list"
+                aria-label={pageMessages.slot_status_list_aria}
+              >
                 {slotState.map((isFilled, idx) => (
                   <li
                     key={idx}
                     className={`l2d-slot${isFilled ? " l2d-slot-filled" : " l2d-slot-empty"}`}
-                    aria-label={`슬롯 ${idx + 1}: ${isFilled ? "닫힘" : "모집중"}`}
+                    aria-label={formatSlotItemAria(locale, idx + 1, isFilled)}
                   >
-                    {isFilled ? "닫힘" : "모집중"}
+                    {isFilled ? pageMessages.slot_closed : pageMessages.slot_open}
                   </li>
                 ))}
               </ul>
@@ -226,11 +242,11 @@ export default async function Live2DPage() {
         {/* 1. 작업 과정 — 세로 타임라인 */}
         <ScrollReveal>
           <section className="l2d-section">
-            <h2 className="l2d-section-title">작업 과정</h2>
+            <h2 className="l2d-section-title">{pageMessages.section_process}</h2>
             <div className="l2d-card">
               <ProcessTimeline steps={processSteps} />
               <p className="l2d-timeline-note">
-                * 총 2회 수정이 가능하니 참고해주시길 바랍니다.
+                {pageMessages.process_revision_note}
               </p>
             </div>
           </section>
@@ -240,7 +256,7 @@ export default async function Live2DPage() {
         {live2dTypes.length > 0 && (
           <ScrollReveal>
             <section className="l2d-section">
-              <h2 className="l2d-section-title">작업 타입 안내</h2>
+              <h2 className="l2d-section-title">{pageMessages.section_type}</h2>
               <div className="l2d-grid-2">
                 {live2dTypes.map((type) => (
                   <article key={type.id} className="l2d-card l2d-type-card">
@@ -265,10 +281,10 @@ export default async function Live2DPage() {
         {/* 3. 가격 안내 — 메인 카드들 + 공통 추가금 카드. 어드민 가격 관리 페이지에서 관리. */}
         <ScrollReveal>
         <section className="l2d-section">
-          <h2 className="l2d-section-title">가격 안내</h2>
+          <h2 className="l2d-section-title">{pageMessages.section_price}</h2>
           {liveMains.length === 0 ? (
             <div className="l2d-card l2d-form-placeholder">
-              <p>가격 정보가 준비 중입니다.</p>
+              <p>{pageMessages.price_preparing}</p>
             </div>
           ) : (
             <div className="l2d-grid-2">
@@ -336,14 +352,14 @@ export default async function Live2DPage() {
             id="commission-form" 은 CommissionFormCTA 의 IntersectionObserver 타깃. */}
         <ScrollReveal>
           <section id="commission-form" className="l2d-section">
-            <h2 className="l2d-section-title">신청서 작성</h2>
+            <h2 className="l2d-section-title">{pageMessages.section_form}</h2>
             {formStatus === "open" ? (
               <NoticeAgreementGate locale={locale}>
                 <Live2DCommissionForm locale={locale} />
               </NoticeAgreementGate>
             ) : (
               <div className="l2d-card l2d-form-placeholder">
-                <p>{STATUS_MESSAGE[formStatus]}</p>
+                <p>{statusMessage[formStatus]}</p>
               </div>
             )}
           </section>
