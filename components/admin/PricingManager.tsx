@@ -26,9 +26,16 @@ import {
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
 import { createClient } from "@/lib/supabase/client";
+import { translateText } from "@/lib/i18n/translate-client";
 import type { CommissionCategory, Language, PriceItem } from "@/types/database";
 
-const SAVE_DEBOUNCE_MS = 500;
+// 수동저장 — 사용자 편집 필드. add/delete/drag 는 즉시 처리(별도 흐름)라 dirty 에 미포함.
+const PRICE_EDITABLE_FIELDS = [
+  "item_name",
+  "price",
+  "description",
+  "is_approx",
+] as const;
 
 const CATEGORIES: { id: CommissionCategory; label: string }[] = [
   { id: "live2d", label: "Live2D 가격" },
@@ -38,6 +45,7 @@ const CATEGORIES: { id: CommissionCategory; label: string }[] = [
 type Props = {
   initial: PriceItem[];
   locale: Language;
+  aiTranslationEnabled: boolean;
 };
 
 // 가격 행을 묶어 표시할 그룹 정의 (탭별로 다른 그룹).
@@ -54,7 +62,11 @@ type Group = {
   showApprox: boolean;
 };
 
-export default function PricingManager({ initial, locale }: Props) {
+export default function PricingManager({
+  initial,
+  locale,
+  aiTranslationEnabled,
+}: Props) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] =
     useState<CommissionCategory>("live2d");
@@ -159,6 +171,12 @@ export default function PricingManager({ initial, locale }: Props) {
     ];
   }, [activeCategory]);
 
+  // 변경 baseline — 마지막으로 DB 와 동기화된 시점. items 와 비교해 dirty 판단.
+  const baselineRef = useRef<Map<string, PriceItem>>(new Map());
+  useEffect(() => {
+    baselineRef.current = new Map(initial.map((i) => [i.id, i]));
+  }, [initial]);
+
   function updateItemLocal(
     id: string,
     patch: Partial<Omit<PriceItem, "id" | "created_at">>,
@@ -166,6 +184,165 @@ export default function PricingManager({ initial, locale }: Props) {
     setItems((prev) =>
       prev.map((i) => (i.id === id ? { ...i, ...patch } : i)),
     );
+  }
+
+  const dirtyIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const item of items) {
+      const base = baselineRef.current.get(item.id);
+      if (!base) continue; // 새로 add 된 row 는 baseline 에 아직 없음 (즉시 INSERT 됨, 빈 값)
+      for (const field of PRICE_EDITABLE_FIELDS) {
+        if (item[field] !== base[field]) {
+          ids.push(item.id);
+          break;
+        }
+      }
+    }
+    return ids;
+  }, [items]);
+  const dirty = dirtyIds.length > 0;
+
+  // 페이지 떠나려고 할 때 dirty 면 브라우저 경고. truthy 문자열 필요 — NoticesManager 주석 참고.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "변경사항이 저장되지 않았어요. 페이지를 떠나시겠어요?";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  async function handleSaveAll() {
+    if (!dirty) return;
+    saveNotifier.notifySaving();
+    const supabase = createClient();
+    const toUpdate = items.filter((i) => dirtyIds.includes(i.id));
+    const results = await Promise.all(
+      toUpdate.map((it) =>
+        supabase
+          .from("price_items")
+          .update({
+            item_name: it.item_name,
+            price: it.price,
+            description: it.description,
+            is_approx: it.is_approx,
+          })
+          .eq("id", it.id),
+      ),
+    );
+    const failed = results.find((r) => r.error);
+    if (failed) {
+      console.error("[admin/pricing] save failed:", failed.error?.message);
+      saveNotifier.notifyError();
+      alert("저장 중 오류가 발생했어요.");
+      return;
+    }
+    saveNotifier.notifySaved();
+
+    // KO 탭 + 글로벌 토글 ON 이면 변경된 row 일괄 번역 다이얼로그.
+    // KO 저장이 실패한 경우 도달하지 않음.
+    if (locale === "ko" && aiTranslationEnabled && toUpdate.length > 0) {
+      await offerBulkTranslation(toUpdate);
+    }
+    router.refresh();
+  }
+
+  // 변경된 price_items 일괄 번역. 다이얼로그 한 번 → "예" → 각 row 별로 sibling 조회
+  // 후 텍스트 필드 (item_name, description) 를 EN/JP 로 번역해 update/insert.
+  // 가격 숫자 (price), 정렬 (order_num) 같은 비-텍스트는 번역 X — 원본 그대로 복제.
+  async function offerBulkTranslation(items: PriceItem[]) {
+    const proceed = window.confirm(
+      `변경된 항목 ${items.length}개의 영어/일본어 번역본도 만드시겠어요?\n\n` +
+        `AI 번역 비용이 발생합니다. (변경된 항목 ${items.length}개)\n\n` +
+        `[확인] 예, 번역할게요\n[취소] 아니오, 한국어만`,
+    );
+    if (!proceed) return;
+
+    saveNotifier.notifySaving();
+    const supabase = createClient();
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const item of items) {
+      try {
+        // 1) 같은 translation_key 의 en/jp sibling 조회
+        const { data: siblings, error: sibErr } = await supabase
+          .from("price_items")
+          .select("id, language")
+          .eq("translation_key", item.translation_key)
+          .neq("language", "ko");
+        if (sibErr) throw new Error(sibErr.message);
+        const existingByLang = new Map<string, string>();
+        for (const r of siblings ?? []) existingByLang.set(r.language, r.id);
+
+        // 2) item_name 번역 (필수 — 비어있어도 호출하지 않음)
+        let nameTrans: Partial<Record<"en" | "jp", string>> = {};
+        if (item.item_name.trim()) {
+          const r = await translateText(
+            item.item_name,
+            ["en", "jp"],
+            "가격 항목명",
+          );
+          nameTrans = r.translations;
+        }
+        // 3) description 번역 (있을 때만)
+        let descTrans: Partial<Record<"en" | "jp", string>> = {};
+        if (item.description && item.description.trim()) {
+          const r = await translateText(
+            item.description,
+            ["en", "jp"],
+            "가격 항목 설명",
+          );
+          descTrans = r.translations;
+        }
+
+        // 4) upsert
+        for (const lang of ["en", "jp"] as const) {
+          const item_name = nameTrans[lang] ?? item.item_name;
+          const description = descTrans[lang] ?? item.description;
+          const existingId = existingByLang.get(lang);
+          if (existingId) {
+            const { error } = await supabase
+              .from("price_items")
+              .update({ item_name, description })
+              .eq("id", existingId);
+            if (error) throw new Error(error.message);
+          } else {
+            const { error } = await supabase.from("price_items").insert({
+              category: item.category,
+              item_name,
+              price: item.price,
+              is_addon: item.is_addon,
+              description,
+              subcategory: item.subcategory,
+              is_approx: item.is_approx,
+              order_num: item.order_num,
+              language: lang,
+              translation_key: item.translation_key,
+            });
+            if (error) throw new Error(error.message);
+          }
+        }
+        successCount++;
+      } catch (e) {
+        failCount++;
+        const msg = e instanceof Error ? e.message : "unknown error";
+        console.error(
+          `[admin/pricing] translation failed for ${item.id}:`,
+          msg,
+        );
+      }
+    }
+
+    if (failCount > 0) {
+      saveNotifier.notifyError();
+      alert(`${successCount}개 번역 성공, ${failCount}개 실패.`);
+    } else {
+      saveNotifier.notifySaved();
+      alert(`${successCount}개 번역 완료.`);
+    }
   }
 
   async function addItem(group: Group) {
@@ -224,24 +401,7 @@ export default function PricingManager({ initial, locale }: Props) {
     router.refresh();
   }
 
-  async function persistItem(
-    id: string,
-    patch: Partial<Omit<PriceItem, "id" | "created_at">>,
-  ) {
-    saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("price_items")
-      .update(patch)
-      .eq("id", id);
-    if (error) {
-      console.error("[admin/pricing] update failed:", error.message);
-      saveNotifier.notifyError();
-      return;
-    }
-    saveNotifier.notifySaved();
-    router.refresh();
-  }
+  // persistItem 제거 — 수동저장으로 전환. updateItemLocal + handleSaveAll 로 대체.
 
   // 그룹 단위 정렬 (드래그 종료 시 그룹 안 항목들의 order_num 재계산).
   async function handleDragEnd(group: Group, event: DragEndEvent) {
@@ -290,12 +450,16 @@ export default function PricingManager({ initial, locale }: Props) {
             </p>
           </div>
           <div
-            className={`admin-samples-save-indicator admin-samples-save-${saveState}`}
+            className={`admin-samples-save-indicator admin-samples-save-${saveState}${
+              saveState === "idle" && dirty ? " admin-samples-save-dirty" : ""
+            }`}
             aria-live="polite"
           >
             {saveState === "saving" && "저장 중..."}
             {saveState === "saved" && "✓ 저장됨"}
             {saveState === "error" && "저장 실패"}
+            {saveState === "idle" && dirty &&
+              `● 저장되지 않은 변경사항 ${dirtyIds.length}개`}
           </div>
         </div>
 
@@ -330,11 +494,21 @@ export default function PricingManager({ initial, locale }: Props) {
                 onAdd={() => addItem(group)}
                 onDelete={(item) => deleteItem(item)}
                 onUpdateLocal={updateItemLocal}
-                onPersist={persistItem}
                 onDragEnd={(e) => handleDragEnd(group, e)}
               />
             );
           })}
+        </div>
+
+        <div className="admin-notices-save-bar">
+          <button
+            type="button"
+            className="admin-action-btn admin-action-btn-primary"
+            onClick={handleSaveAll}
+            disabled={!dirty}
+          >
+            {dirty ? `저장 (${dirtyIds.length})` : "저장"}
+          </button>
         </div>
       </div>
     </SaveStateContext.Provider>
@@ -347,7 +521,6 @@ function PricingGroup({
   onAdd,
   onDelete,
   onUpdateLocal,
-  onPersist,
   onDragEnd,
 }: {
   group: Group;
@@ -355,10 +528,6 @@ function PricingGroup({
   onAdd: () => void;
   onDelete: (item: PriceItem) => void;
   onUpdateLocal: (
-    id: string,
-    patch: Partial<Omit<PriceItem, "id" | "created_at">>,
-  ) => void;
-  onPersist: (
     id: string,
     patch: Partial<Omit<PriceItem, "id" | "created_at">>,
   ) => void;
@@ -394,7 +563,6 @@ function PricingGroup({
                 item={item}
                 showApprox={group.showApprox}
                 onUpdateLocal={(patch) => onUpdateLocal(item.id, patch)}
-                onPersist={(patch) => onPersist(item.id, patch)}
                 onDelete={() => onDelete(item)}
               />
             ))}
@@ -417,7 +585,6 @@ function PricingRow({
   item,
   showApprox,
   onUpdateLocal,
-  onPersist,
   onDelete,
 }: {
   item: PriceItem;
@@ -425,7 +592,6 @@ function PricingRow({
   onUpdateLocal: (
     patch: Partial<Omit<PriceItem, "id" | "created_at">>,
   ) => void;
-  onPersist: (patch: Partial<Omit<PriceItem, "id" | "created_at">>) => void;
   onDelete: () => void;
 }) {
   const {
@@ -436,25 +602,6 @@ function PricingRow({
     transition,
     isDragging,
   } = useSortable({ id: item.id });
-
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 텍스트/숫자 입력은 디바운스 후 저장.
-  function scheduleTextSave(patch: Partial<PriceItem>) {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      onPersist(patch);
-    }, SAVE_DEBOUNCE_MS);
-  }
-
-  function flushPending(patch: Partial<PriceItem>) {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-      onPersist(patch);
-    }
-  }
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -479,12 +626,7 @@ function PricingRow({
         className="admin-form-input admin-pricing-name"
         value={item.item_name}
         placeholder="항목 이름"
-        onChange={(e) => {
-          const v = e.target.value;
-          onUpdateLocal({ item_name: v });
-          scheduleTextSave({ item_name: v });
-        }}
-        onBlur={() => flushPending({ item_name: item.item_name })}
+        onChange={(e) => onUpdateLocal({ item_name: e.target.value })}
       />
 
       <input
@@ -494,12 +636,7 @@ function PricingRow({
         placeholder="0"
         min={0}
         step={1000}
-        onChange={(e) => {
-          const v = Number(e.target.value) || 0;
-          onUpdateLocal({ price: v });
-          scheduleTextSave({ price: v });
-        }}
-        onBlur={() => flushPending({ price: item.price })}
+        onChange={(e) => onUpdateLocal({ price: Number(e.target.value) || 0 })}
       />
 
       {showApprox && (
@@ -507,7 +644,7 @@ function PricingRow({
           <input
             type="checkbox"
             checked={item.is_approx}
-            onChange={(e) => onPersist({ is_approx: e.target.checked })}
+            onChange={(e) => onUpdateLocal({ is_approx: e.target.checked })}
           />
           ~
         </label>
@@ -518,14 +655,7 @@ function PricingRow({
         className="admin-form-input admin-pricing-desc"
         value={item.description ?? ""}
         placeholder="설명 (선택)"
-        onChange={(e) => {
-          const v = e.target.value;
-          onUpdateLocal({ description: v });
-          scheduleTextSave({ description: v });
-        }}
-        onBlur={() =>
-          flushPending({ description: item.description ?? "" })
-        }
+        onChange={(e) => onUpdateLocal({ description: e.target.value })}
       />
 
       <button

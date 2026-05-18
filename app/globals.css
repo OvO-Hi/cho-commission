@@ -3864,6 +3864,11 @@ a {
   color: #ff8fb1;
 }
 
+/* 수동저장 dirty 상태 — saveState=idle 이지만 변경사항이 있을 때 노출. */
+.admin-samples-save-dirty {
+  color: #c89a1f;
+}
+
 .admin-samples-tab {
   padding: 8px 18px;
   border: none;
@@ -4628,3 +4633,12 @@ a {
   }
 }
 
+
+/* 어드민 수동저장 — 매니저 하단의 저장 버튼 영역. */
+.admin-notices-save-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #efefef;
+}

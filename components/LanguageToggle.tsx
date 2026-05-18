@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 
 import { setLocaleCookie } from "@/lib/i18n/locale-actions";
 import type { Language } from "@/types/database";
@@ -19,7 +18,6 @@ const OPTIONS: { value: Language; label: string }[] = [
 ];
 
 export default function LanguageToggle({ current }: { current: Language }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -44,10 +42,12 @@ export default function LanguageToggle({ current }: { current: Language }) {
   function pick(next: Language) {
     setOpen(false);
     if (next === current) return;
-    // server action 후 refresh — 서버 컴포넌트가 새 cookie 로 다시 fetch.
+    // router.refresh() 는 서버 컴포넌트는 새로 fetch 하지만 매니저 client component
+    // 의 useState 초기값은 그대로라 stale 한 입력이 화면에 남는다. hard reload 가
+    // 가장 단단한 갱신 — dirty 입력은 매니저들의 onbeforeunload 가드가 보호한다.
     startTransition(async () => {
       await setLocaleCookie(next);
-      router.refresh();
+      window.location.reload();
     });
   }
 

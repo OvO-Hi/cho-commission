@@ -26,6 +26,7 @@ import {
   type SaveStateNotifier,
 } from "@/components/admin/sample-blocks/save-state";
 import { createClient } from "@/lib/supabase/client";
+import { translateText } from "@/lib/i18n/translate-client";
 import type {
   CommissionCategory,
   Language,
@@ -34,7 +35,10 @@ import type {
   ProcessStep,
 } from "@/types/database";
 
-const SAVE_DEBOUNCE_MS = 500;
+// 수동저장 — 사용자 편집 필드. 모듈 상수라 useMemo 의 deps 안정성 보장.
+const STEP_FIELDS = ["title", "description"] as const;
+const TYPE_FIELDS = ["type_key", "title"] as const;
+const TYPE_ITEM_FIELDS = ["label", "value"] as const;
 
 const CATEGORIES: { id: CommissionCategory; label: string }[] = [
   { id: "live2d", label: "Live2D" },
@@ -46,6 +50,7 @@ type Props = {
   initialTypes: Live2DType[];
   initialTypeItems: Live2DTypeItem[];
   locale: Language;
+  aiTranslationEnabled: boolean;
 };
 
 export default function ProcessManager({
@@ -53,6 +58,7 @@ export default function ProcessManager({
   initialTypes,
   initialTypeItems,
   locale,
+  aiTranslationEnabled,
 }: Props) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] =
@@ -91,6 +97,256 @@ export default function ProcessManager({
   useEffect(() => setSteps(initialSteps), [initialSteps]);
   useEffect(() => setTypes(initialTypes), [initialTypes]);
   useEffect(() => setTypeItems(initialTypeItems), [initialTypeItems]);
+
+  // ─── dirty 추적 (수동저장) ───
+  // 사용자가 row 입력값을 바꾸면 로컬 state 만 업데이트하고, 저장 버튼 클릭 시
+  // baseline 과 diff 해서 변경된 row 만 일괄 UPDATE 한다. add/delete/drag 는 즉시 DB.
+  const stepBaseRef = useRef<Map<string, ProcessStep>>(new Map());
+  const typeBaseRef = useRef<Map<string, Live2DType>>(new Map());
+  const typeItemBaseRef = useRef<Map<string, Live2DTypeItem>>(new Map());
+  useEffect(() => {
+    stepBaseRef.current = new Map(initialSteps.map((s) => [s.id, s]));
+  }, [initialSteps]);
+  useEffect(() => {
+    typeBaseRef.current = new Map(initialTypes.map((t) => [t.id, t]));
+  }, [initialTypes]);
+  useEffect(() => {
+    typeItemBaseRef.current = new Map(initialTypeItems.map((i) => [i.id, i]));
+  }, [initialTypeItems]);
+
+  const dirtyStepIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const s of steps) {
+      const base = stepBaseRef.current.get(s.id);
+      if (!base) continue;
+      if (STEP_FIELDS.some((f) => s[f] !== base[f])) ids.push(s.id);
+    }
+    return ids;
+  }, [steps]);
+  const dirtyTypeIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const t of types) {
+      const base = typeBaseRef.current.get(t.id);
+      if (!base) continue;
+      if (TYPE_FIELDS.some((f) => t[f] !== base[f])) ids.push(t.id);
+    }
+    return ids;
+  }, [types]);
+  const dirtyTypeItemIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const it of typeItems) {
+      const base = typeItemBaseRef.current.get(it.id);
+      if (!base) continue;
+      if (TYPE_ITEM_FIELDS.some((f) => it[f] !== base[f])) ids.push(it.id);
+    }
+    return ids;
+  }, [typeItems]);
+
+  const dirtyCount =
+    dirtyStepIds.length + dirtyTypeIds.length + dirtyTypeItemIds.length;
+  const dirty = dirtyCount > 0;
+
+  // 페이지 떠나려고 할 때 dirty 면 브라우저 경고. truthy 문자열 필요 — NoticesManager 주석 참고.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "변경사항이 저장되지 않았어요. 페이지를 떠나시겠어요?";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+
+  async function handleSaveAll() {
+    if (!dirty) return;
+    saveNotifier.notifySaving();
+    const supabase = createClient();
+
+    const stepUpdates = steps
+      .filter((s) => dirtyStepIds.includes(s.id))
+      .map((s) =>
+        supabase
+          .from("process_steps")
+          .update({ title: s.title, description: s.description })
+          .eq("id", s.id),
+      );
+    const typeUpdates = types
+      .filter((t) => dirtyTypeIds.includes(t.id))
+      .map((t) =>
+        supabase
+          .from("live2d_types")
+          .update({ type_key: t.type_key, title: t.title })
+          .eq("id", t.id),
+      );
+    const itemUpdates = typeItems
+      .filter((it) => dirtyTypeItemIds.includes(it.id))
+      .map((it) =>
+        supabase
+          .from("live2d_type_items")
+          .update({ label: it.label, value: it.value })
+          .eq("id", it.id),
+      );
+
+    const results = await Promise.all([
+      ...stepUpdates,
+      ...typeUpdates,
+      ...itemUpdates,
+    ]);
+    const failed = results.find((r) => r.error);
+    if (failed) {
+      console.error("[admin/process] save failed:", failed.error?.message);
+      saveNotifier.notifyError();
+      alert("저장 중 오류가 발생했어요.");
+      return;
+    }
+    saveNotifier.notifySaved();
+
+    // KO 탭 + 글로벌 토글 ON 이면 변경된 row 일괄 번역 다이얼로그.
+    // live2d_type_items 는 부모(live2d_types) 종속이라 번역 매핑이 까다로움 — 이번 PR
+    // 에서는 process_steps + live2d_types 만 처리. type_items 번역은 후속 PR.
+    if (locale === "ko" && aiTranslationEnabled) {
+      const dirtySteps = steps.filter((s) => dirtyStepIds.includes(s.id));
+      const dirtyTypes = types.filter((t) => dirtyTypeIds.includes(t.id));
+      const totalTranslatable = dirtySteps.length + dirtyTypes.length;
+      if (totalTranslatable > 0) {
+        await offerBulkTranslation(dirtySteps, dirtyTypes);
+      }
+    }
+    router.refresh();
+  }
+
+  // process_steps + live2d_types 변경분 일괄 번역.
+  // 비-텍스트 필드 (step_num, order_num, type_key) 는 번역 X — 원본 그대로 복제.
+  // type_key 는 영문 식별자라 의도적 제외.
+  async function offerBulkTranslation(
+    dirtySteps: ProcessStep[],
+    dirtyTypes: Live2DType[],
+  ) {
+    const total = dirtySteps.length + dirtyTypes.length;
+    const proceed = window.confirm(
+      `변경된 항목 ${total}개의 영어/일본어 번역본도 만드시겠어요?\n\n` +
+        `AI 번역 비용이 발생합니다. (변경된 항목 ${total}개)\n\n` +
+        `[확인] 예, 번역할게요\n[취소] 아니오, 한국어만`,
+    );
+    if (!proceed) return;
+
+    saveNotifier.notifySaving();
+    const supabase = createClient();
+    let successCount = 0;
+    let failCount = 0;
+
+    // process_steps 처리
+    for (const step of dirtySteps) {
+      try {
+        const { data: siblings, error: sibErr } = await supabase
+          .from("process_steps")
+          .select("id, language")
+          .eq("translation_key", step.translation_key)
+          .neq("language", "ko");
+        if (sibErr) throw new Error(sibErr.message);
+        const existingByLang = new Map<string, string>();
+        for (const r of siblings ?? []) existingByLang.set(r.language, r.id);
+
+        let titleTrans: Partial<Record<"en" | "jp", string>> = {};
+        if (step.title.trim()) {
+          const r = await translateText(step.title, ["en", "jp"], "작업 과정 단계 제목");
+          titleTrans = r.translations;
+        }
+        let descTrans: Partial<Record<"en" | "jp", string>> = {};
+        if (step.description && step.description.trim()) {
+          const r = await translateText(
+            step.description,
+            ["en", "jp"],
+            "작업 과정 단계 설명 (HTML 가능)",
+          );
+          descTrans = r.translations;
+        }
+
+        for (const lang of ["en", "jp"] as const) {
+          const title = titleTrans[lang] ?? step.title;
+          const description = descTrans[lang] ?? step.description;
+          const existingId = existingByLang.get(lang);
+          if (existingId) {
+            const { error } = await supabase
+              .from("process_steps")
+              .update({ title, description })
+              .eq("id", existingId);
+            if (error) throw new Error(error.message);
+          } else {
+            const { error } = await supabase.from("process_steps").insert({
+              category: step.category,
+              step_num: step.step_num,
+              title,
+              description,
+              language: lang,
+              translation_key: step.translation_key,
+            });
+            if (error) throw new Error(error.message);
+          }
+        }
+        successCount++;
+      } catch (e) {
+        failCount++;
+        const msg = e instanceof Error ? e.message : "unknown error";
+        console.error(`[admin/process] translation failed for step ${step.id}:`, msg);
+      }
+    }
+
+    // live2d_types 처리 — title 만 번역 (type_key 는 영문 식별자라 제외)
+    for (const type of dirtyTypes) {
+      try {
+        const { data: siblings, error: sibErr } = await supabase
+          .from("live2d_types")
+          .select("id, language")
+          .eq("translation_key", type.translation_key)
+          .neq("language", "ko");
+        if (sibErr) throw new Error(sibErr.message);
+        const existingByLang = new Map<string, string>();
+        for (const r of siblings ?? []) existingByLang.set(r.language, r.id);
+
+        let titleTrans: Partial<Record<"en" | "jp", string>> = {};
+        if (type.title.trim()) {
+          const r = await translateText(type.title, ["en", "jp"], "Live2D 타입 카드 제목");
+          titleTrans = r.translations;
+        }
+
+        for (const lang of ["en", "jp"] as const) {
+          const title = titleTrans[lang] ?? type.title;
+          const existingId = existingByLang.get(lang);
+          if (existingId) {
+            const { error } = await supabase
+              .from("live2d_types")
+              .update({ title })
+              .eq("id", existingId);
+            if (error) throw new Error(error.message);
+          } else {
+            const { error } = await supabase.from("live2d_types").insert({
+              type_key: type.type_key,
+              title,
+              order_num: type.order_num,
+              language: lang,
+              translation_key: type.translation_key,
+            });
+            if (error) throw new Error(error.message);
+          }
+        }
+        successCount++;
+      } catch (e) {
+        failCount++;
+        const msg = e instanceof Error ? e.message : "unknown error";
+        console.error(`[admin/process] translation failed for type ${type.id}:`, msg);
+      }
+    }
+
+    if (failCount > 0) {
+      saveNotifier.notifyError();
+      alert(`${successCount}개 번역 성공, ${failCount}개 실패.`);
+    } else {
+      saveNotifier.notifySaved();
+      alert(`${successCount}개 번역 완료.`);
+    }
+  }
 
   const visibleSteps = useMemo(
     () =>
@@ -156,24 +412,7 @@ export default function ProcessManager({
     );
   }
 
-  async function persistStep(
-    id: string,
-    patch: Partial<Omit<ProcessStep, "id" | "created_at">>,
-  ) {
-    saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("process_steps")
-      .update(patch)
-      .eq("id", id);
-    if (error) {
-      console.error("[admin/process] update step failed:", error.message);
-      saveNotifier.notifyError();
-      return;
-    }
-    saveNotifier.notifySaved();
-    router.refresh();
-  }
+  // persistStep 제거 — handleSaveAll 이 일괄 처리.
 
   async function handleStepsDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -260,24 +499,7 @@ export default function ProcessManager({
     );
   }
 
-  async function persistType(
-    id: string,
-    patch: Partial<Omit<Live2DType, "id" | "created_at">>,
-  ) {
-    saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("live2d_types")
-      .update(patch)
-      .eq("id", id);
-    if (error) {
-      console.error("[admin/process] update type failed:", error.message);
-      saveNotifier.notifyError();
-      return;
-    }
-    saveNotifier.notifySaved();
-    router.refresh();
-  }
+  // persistType 제거 — handleSaveAll 이 일괄 처리.
 
   // ─────────── Live2DTypeItems mutations (각 타입 카드의 자식 항목들) ───────────
   async function addTypeItem(typeId: string) {
@@ -331,24 +553,7 @@ export default function ProcessManager({
     );
   }
 
-  async function persistTypeItem(
-    id: string,
-    patch: Partial<Omit<Live2DTypeItem, "id" | "created_at">>,
-  ) {
-    saveNotifier.notifySaving();
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("live2d_type_items")
-      .update(patch)
-      .eq("id", id);
-    if (error) {
-      console.error("[admin/process] update type item failed:", error.message);
-      saveNotifier.notifyError();
-      return;
-    }
-    saveNotifier.notifySaved();
-    router.refresh();
-  }
+  // persistTypeItem 제거 — handleSaveAll 이 일괄 처리.
 
   async function handleTypeItemsDragEnd(typeId: string, event: DragEndEvent) {
     const { active, over } = event;
@@ -423,12 +628,16 @@ export default function ProcessManager({
             </p>
           </div>
           <div
-            className={`admin-samples-save-indicator admin-samples-save-${saveState}`}
+            className={`admin-samples-save-indicator admin-samples-save-${saveState}${
+              saveState === "idle" && dirty ? " admin-samples-save-dirty" : ""
+            }`}
             aria-live="polite"
           >
             {saveState === "saving" && "저장 중..."}
             {saveState === "saved" && "✓ 저장됨"}
             {saveState === "error" && "저장 실패"}
+            {saveState === "idle" && dirty &&
+              `● 저장되지 않은 변경사항 ${dirtyCount}개`}
           </div>
         </div>
 
@@ -453,7 +662,6 @@ export default function ProcessManager({
           onAdd={addStep}
           onDelete={(step) => deleteStep(step)}
           onUpdateLocal={updateStepLocal}
-          onPersist={persistStep}
           onDragEnd={handleStepsDragEnd}
         />
 
@@ -464,15 +672,24 @@ export default function ProcessManager({
             onAdd={addType}
             onDelete={(type) => deleteType(type)}
             onUpdateLocal={updateTypeLocal}
-            onPersist={persistType}
             onDragEnd={handleTypesDragEnd}
             onAddItem={addTypeItem}
             onDeleteItem={deleteTypeItem}
             onUpdateItemLocal={updateTypeItemLocal}
-            onPersistItem={persistTypeItem}
             onItemsDragEnd={handleTypeItemsDragEnd}
           />
         )}
+
+        <div className="admin-notices-save-bar">
+          <button
+            type="button"
+            className="admin-action-btn admin-action-btn-primary"
+            onClick={handleSaveAll}
+            disabled={!dirty}
+          >
+            {dirty ? `저장 (${dirtyCount})` : "저장"}
+          </button>
+        </div>
       </div>
     </SaveStateContext.Provider>
   );
@@ -484,17 +701,12 @@ function ProcessStepsSection({
   onAdd,
   onDelete,
   onUpdateLocal,
-  onPersist,
   onDragEnd,
 }: {
   steps: ProcessStep[];
   onAdd: () => void;
   onDelete: (step: ProcessStep) => void;
   onUpdateLocal: (id: string, patch: Partial<ProcessStep>) => void;
-  onPersist: (
-    id: string,
-    patch: Partial<Omit<ProcessStep, "id" | "created_at">>,
-  ) => void;
   onDragEnd: (event: DragEndEvent) => void;
 }) {
   const sensors = useSensors(
@@ -527,7 +739,6 @@ function ProcessStepsSection({
                 stepIndex={idx + 1}
                 onDelete={() => onDelete(step)}
                 onUpdateLocal={(patch) => onUpdateLocal(step.id, patch)}
-                onPersist={(patch) => onPersist(step.id, patch)}
               />
             ))}
           </div>
@@ -545,15 +756,11 @@ function ProcessStepRow({
   stepIndex,
   onDelete,
   onUpdateLocal,
-  onPersist,
 }: {
   step: ProcessStep;
   stepIndex: number;
   onDelete: () => void;
   onUpdateLocal: (patch: Partial<ProcessStep>) => void;
-  onPersist: (
-    patch: Partial<Omit<ProcessStep, "id" | "created_at">>,
-  ) => void;
 }) {
   const {
     attributes,
@@ -568,15 +775,6 @@ function ProcessStepRow({
   const [showDesc, setShowDesc] = useState<boolean>(
     !!step.description?.trim(),
   );
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function scheduleTitleSave(next: string) {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      onPersist({ title: next });
-    }, SAVE_DEBOUNCE_MS);
-  }
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -605,17 +803,7 @@ function ProcessStepRow({
         className="admin-form-input admin-process-title"
         value={step.title}
         placeholder="단계 제목"
-        onChange={(e) => {
-          onUpdateLocal({ title: e.target.value });
-          scheduleTitleSave(e.target.value);
-        }}
-        onBlur={() => {
-          if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-            debounceRef.current = null;
-            onPersist({ title: step.title });
-          }
-        }}
+        onChange={(e) => onUpdateLocal({ title: e.target.value })}
       />
 
       <button
@@ -639,15 +827,8 @@ function ProcessStepRow({
         <div className="admin-process-desc">
           <RichTextEditor
             value={step.description ?? ""}
-            onSave={async (html) => {
-              const supabase = createClient();
-              const { error } = await supabase
-                .from("process_steps")
-                .update({ description: html })
-                .eq("id", step.id);
-              if (error) throw new Error(error.message);
-              onUpdateLocal({ description: html });
-            }}
+            autoSave={false}
+            onChange={(html) => onUpdateLocal({ description: html })}
           />
         </div>
       )}
@@ -662,12 +843,10 @@ function Live2DTypesSection({
   onAdd,
   onDelete,
   onUpdateLocal,
-  onPersist,
   onDragEnd,
   onAddItem,
   onDeleteItem,
   onUpdateItemLocal,
-  onPersistItem,
   onItemsDragEnd,
 }: {
   types: Live2DType[];
@@ -675,18 +854,10 @@ function Live2DTypesSection({
   onAdd: () => void;
   onDelete: (type: Live2DType) => void;
   onUpdateLocal: (id: string, patch: Partial<Live2DType>) => void;
-  onPersist: (
-    id: string,
-    patch: Partial<Omit<Live2DType, "id" | "created_at">>,
-  ) => void;
   onDragEnd: (event: DragEndEvent) => void;
   onAddItem: (typeId: string) => void;
   onDeleteItem: (id: string) => void;
   onUpdateItemLocal: (id: string, patch: Partial<Live2DTypeItem>) => void;
-  onPersistItem: (
-    id: string,
-    patch: Partial<Omit<Live2DTypeItem, "id" | "created_at">>,
-  ) => void;
   onItemsDragEnd: (typeId: string, event: DragEndEvent) => void;
 }) {
   const sensors = useSensors(
@@ -723,11 +894,9 @@ function Live2DTypesSection({
                   items={items}
                   onDelete={() => onDelete(type)}
                   onUpdateLocal={(patch) => onUpdateLocal(type.id, patch)}
-                  onPersist={(patch) => onPersist(type.id, patch)}
                   onAddItem={() => onAddItem(type.id)}
                   onDeleteItem={onDeleteItem}
                   onUpdateItemLocal={onUpdateItemLocal}
-                  onPersistItem={onPersistItem}
                   onItemsDragEnd={(e) => onItemsDragEnd(type.id, e)}
                 />
               );
@@ -747,27 +916,18 @@ function Live2DTypeRow({
   items,
   onDelete,
   onUpdateLocal,
-  onPersist,
   onAddItem,
   onDeleteItem,
   onUpdateItemLocal,
-  onPersistItem,
   onItemsDragEnd,
 }: {
   type: Live2DType;
   items: Live2DTypeItem[];
   onDelete: () => void;
   onUpdateLocal: (patch: Partial<Live2DType>) => void;
-  onPersist: (
-    patch: Partial<Omit<Live2DType, "id" | "created_at">>,
-  ) => void;
   onAddItem: () => void;
   onDeleteItem: (id: string) => void;
   onUpdateItemLocal: (id: string, patch: Partial<Live2DTypeItem>) => void;
-  onPersistItem: (
-    id: string,
-    patch: Partial<Omit<Live2DTypeItem, "id" | "created_at">>,
-  ) => void;
   onItemsDragEnd: (event: DragEndEvent) => void;
 }) {
   const {
@@ -779,28 +939,11 @@ function Live2DTypeRow({
     isDragging,
   } = useSortable({ id: type.id });
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 항목 dnd 용 별도 sensor — 타입 카드 dnd 와는 별개의 컨텍스트.
   const itemSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  function scheduleSave(patch: Partial<Live2DType>) {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      onPersist(patch);
-    }, SAVE_DEBOUNCE_MS);
-  }
-
-  function flush(patch: Partial<Live2DType>) {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-      onPersist(patch);
-    }
-  }
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -825,11 +968,7 @@ function Live2DTypeRow({
         className="admin-form-input admin-type-key"
         value={type.type_key}
         placeholder="key (예: illust)"
-        onChange={(e) => {
-          onUpdateLocal({ type_key: e.target.value });
-          scheduleSave({ type_key: e.target.value });
-        }}
-        onBlur={() => flush({ type_key: type.type_key })}
+        onChange={(e) => onUpdateLocal({ type_key: e.target.value })}
       />
 
       <input
@@ -837,11 +976,7 @@ function Live2DTypeRow({
         className="admin-form-input admin-type-title"
         value={type.title}
         placeholder="카드 제목"
-        onChange={(e) => {
-          onUpdateLocal({ title: e.target.value });
-          scheduleSave({ title: e.target.value });
-        }}
-        onBlur={() => flush({ title: type.title })}
+        onChange={(e) => onUpdateLocal({ title: e.target.value })}
       />
 
       <button
@@ -876,7 +1011,6 @@ function Live2DTypeRow({
                   item={item}
                   onDelete={() => onDeleteItem(item.id)}
                   onUpdateLocal={(patch) => onUpdateItemLocal(item.id, patch)}
-                  onPersist={(patch) => onPersistItem(item.id, patch)}
                 />
               ))}
             </div>
@@ -898,14 +1032,10 @@ function Live2DTypeItemRow({
   item,
   onDelete,
   onUpdateLocal,
-  onPersist,
 }: {
   item: Live2DTypeItem;
   onDelete: () => void;
   onUpdateLocal: (patch: Partial<Live2DTypeItem>) => void;
-  onPersist: (
-    patch: Partial<Omit<Live2DTypeItem, "id" | "created_at">>,
-  ) => void;
 }) {
   const {
     attributes,
@@ -915,24 +1045,6 @@ function Live2DTypeItemRow({
     transition,
     isDragging,
   } = useSortable({ id: item.id });
-
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function scheduleSave(patch: Partial<Live2DTypeItem>) {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      onPersist(patch);
-    }, SAVE_DEBOUNCE_MS);
-  }
-
-  function flush(patch: Partial<Live2DTypeItem>) {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-      onPersist(patch);
-    }
-  }
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -960,14 +1072,8 @@ function Live2DTypeItemRow({
         onChange={(e) => {
           // 빈 문자열이면 null 로 저장 → 사용자 페이지에서 "·" 로 표시.
           const next = e.target.value;
-          onUpdateLocal({ label: next });
-          scheduleSave({ label: next.length === 0 ? null : next });
+          onUpdateLocal({ label: next.length === 0 ? null : next });
         }}
-        onBlur={() =>
-          flush({
-            label: item.label && item.label.length > 0 ? item.label : null,
-          })
-        }
       />
 
       <input
@@ -975,11 +1081,7 @@ function Live2DTypeItemRow({
         className="admin-form-input admin-type-item-input"
         value={item.value}
         placeholder="값"
-        onChange={(e) => {
-          onUpdateLocal({ value: e.target.value });
-          scheduleSave({ value: e.target.value });
-        }}
-        onBlur={() => flush({ value: item.value })}
+        onChange={(e) => onUpdateLocal({ value: e.target.value })}
       />
 
       <button

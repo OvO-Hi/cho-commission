@@ -16,11 +16,19 @@ type Props = {
   // 초기 HTML(또는 plain text). 값이 바뀌어도 에디터 내용은 재마운트가 아니면 유지됩니다 —
   // key 로 인스턴스를 분리하거나 부모에서 관리하세요.
   value: string;
-  // 저장 작업. 실패 시 throw 해주세요. 성공/실패에 따라 인디케이터가 갱신됩니다.
-  onSave: (html: string) => Promise<void>;
+  // autoSave=true(기본): debounce 후 onSave 자동 호출. 기존 동작.
+  // autoSave=false: onSave 자동 호출 안 함. 부모가 onChange 를 받아 dirty 추적 + 외부 "저장" 버튼.
+  autoSave?: boolean;
+  onSave?: (html: string) => Promise<void>;
+  onChange?: (html: string) => void;
 };
 
-export default function RichTextEditor({ value, onSave }: Props) {
+export default function RichTextEditor({
+  value,
+  autoSave = true,
+  onSave,
+  onChange,
+}: Props) {
   const notifier = useSaveStateNotifier();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastValueRef = useRef<string>(value);
@@ -40,6 +48,8 @@ export default function RichTextEditor({ value, onSave }: Props) {
     onUpdate({ editor }) {
       const html = editor.getHTML();
       lastValueRef.current = html;
+      onChange?.(html);
+      if (!autoSave) return;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         debounceRef.current = null;
@@ -47,6 +57,7 @@ export default function RichTextEditor({ value, onSave }: Props) {
       }, SAVE_DEBOUNCE_MS);
     },
     onBlur() {
+      if (!autoSave) return;
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
@@ -62,6 +73,7 @@ export default function RichTextEditor({ value, onSave }: Props) {
   }, []);
 
   async function doSave(html: string) {
+    if (!onSave) return;
     notifier?.notifySaving();
     try {
       await onSave(html);

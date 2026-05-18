@@ -1,4 +1,5 @@
 import ProcessManager from "@/components/admin/ProcessManager";
+import { SETTING_KEYS } from "@/lib/admin/setting-keys";
 import { getCurrentLocale } from "@/lib/i18n/locale";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,7 +9,7 @@ export default async function AdminProcessPage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
 
-  const [stepsRes, typesRes, typeItemsRes] = await Promise.all([
+  const [stepsRes, typesRes, typeItemsRes, aiToggleRes] = await Promise.all([
     supabase
       .from("process_steps")
       .select("*")
@@ -23,6 +24,12 @@ export default async function AdminProcessPage() {
       .from("live2d_type_items")
       .select("*")
       .order("order_num", { ascending: true }),
+    supabase
+      .from("settings")
+      .select("value")
+      .eq("key", SETTING_KEYS.aiTranslationEnabled)
+      .eq("language", "ko")
+      .maybeSingle(),
   ]);
 
   if (stepsRes.error) {
@@ -38,12 +45,15 @@ export default async function AdminProcessPage() {
     );
   }
 
+  const aiTranslationEnabled = aiToggleRes.data?.value === "true";
+
   return (
     <ProcessManager
       initialSteps={stepsRes.data ?? []}
       initialTypes={typesRes.data ?? []}
       initialTypeItems={typeItemsRes.data ?? []}
       locale={locale}
+      aiTranslationEnabled={aiTranslationEnabled}
     />
   );
 }

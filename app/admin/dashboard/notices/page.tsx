@@ -1,4 +1,5 @@
 import NoticesManager from "@/components/admin/NoticesManager";
+import { SETTING_KEYS } from "@/lib/admin/setting-keys";
 import { getCurrentLocale } from "@/lib/i18n/locale";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,7 +9,7 @@ export default async function AdminNoticesPage() {
   const supabase = createClient();
   const locale = await getCurrentLocale();
 
-  const [noticesRes, rulesRes, columnsRes, valuesRes] = await Promise.all([
+  const [noticesRes, rulesRes, columnsRes, valuesRes, aiToggleRes] = await Promise.all([
     supabase
       .from("notices")
       .select("*")
@@ -24,6 +25,13 @@ export default async function AdminNoticesPage() {
       .select("*")
       .order("order_num", { ascending: true }),
     supabase.from("copyright_rule_values").select("*"),
+    // 글로벌 AI 번역 토글 — 다국어 무관, ko row 한 개만 확인.
+    supabase
+      .from("settings")
+      .select("value")
+      .eq("key", SETTING_KEYS.aiTranslationEnabled)
+      .eq("language", "ko")
+      .maybeSingle(),
   ]);
 
   if (noticesRes.error) {
@@ -39,6 +47,8 @@ export default async function AdminNoticesPage() {
     console.error("[admin/notices] fetch values failed:", valuesRes.error.message);
   }
 
+  const aiTranslationEnabled = aiToggleRes.data?.value === "true";
+
   return (
     <NoticesManager
       initialNotices={noticesRes.data ?? []}
@@ -46,6 +56,7 @@ export default async function AdminNoticesPage() {
       initialColumns={columnsRes.data ?? []}
       initialValues={valuesRes.data ?? []}
       locale={locale}
+      aiTranslationEnabled={aiTranslationEnabled}
     />
   );
 }
