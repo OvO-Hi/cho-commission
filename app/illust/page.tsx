@@ -15,14 +15,18 @@ import {
 } from "@/lib/i18n/fetchWithFallback";
 import { formatPrice } from "@/lib/i18n/formatPrice";
 import { getCurrentLocale } from "@/lib/i18n/locale";
+import type { Language } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
 // 가격은 어드민 페이지(/admin/dashboard/pricing) 에서 관리. price_items 테이블 fetch.
 
-const SUBCATEGORY_LABEL: Record<string, string> = {
-  broadcast: "방송용 일러스트",
-  commercial: "상업용 일러스트",
+// subcategory 라벨은 페이지 locale 기준 분기 (formatPrice 와 다르게 데이터의
+// language 가 아님 — 라벨은 페이지 표시용이라 사용자가 보는 언어로 통일).
+const SUBCATEGORY_LABEL: Record<Language, Record<"broadcast" | "commercial", string>> = {
+  ko: { broadcast: "방송용 일러스트", commercial: "상업용 일러스트" },
+  en: { broadcast: "Broadcasting", commercial: "Commercial" },
+  jp: { broadcast: "放送用", commercial: "商用" },
 };
 
 // 작업 과정은 어드민 페이지(/admin/dashboard/process) 에서 관리.
@@ -223,7 +227,7 @@ export default async function IllustPage() {
                   className="l2d-card l2d-pricecard"
                 >
                   <h3 className="l2d-pricecard-title">
-                    {SUBCATEGORY_LABEL[tier.key]}
+                    {SUBCATEGORY_LABEL[locale][tier.key]}
                   </h3>
 
                   <ul className="l2d-pricecard-bases">
