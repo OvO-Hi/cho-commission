@@ -3507,6 +3507,47 @@ a {
   background: rgba(158, 225, 122, 0.06);
 }
 
+/* 제목 row — 모바일에선 우측에 저장 인디케이터를 두기 위해 flex space-between.
+   데스크탑은 인디케이터가 display:none 이라 자식이 h1 하나뿐이지만 wrapper 자체는
+   무해. */
+.admin-samples-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* 인디케이터의 모바일/데스크탑 위치 분기.
+   기본: mobile-only 숨김, desktop-only 노출. 모바일 미디어 쿼리가 반대로.
+   selector 를 두 클래스 결합(specificity 0,2,0)으로 둬야 한다 — base
+   `.admin-samples-save-indicator { display: inline-flex }` 가 CSS 의 더 뒤에
+   정의돼 있어 single-class 룰을 source order 로 override 해버린다. */
+.admin-samples-save-indicator.admin-samples-save-mobile-only {
+  display: none;
+}
+
+/* 탭 라벨의 " 샘플" 접미사 — 모바일에선 숨겨 짧은 표시. */
+.admin-samples-tab-suffix {
+  /* base 는 표시 (데스크탑). */
+}
+
+/* 모바일 — toolbar 의 인디케이터가 위 제목 row 로 이동했으므로 1행 그대로 유지
+   가능. 탭 라벨 접미사 숨김 + 미리보기 nowrap. */
+@media (max-width: 720px) {
+  .admin-samples-save-indicator.admin-samples-save-mobile-only {
+    display: inline-flex;
+  }
+  .admin-samples-save-indicator.admin-samples-save-desktop-only {
+    display: none;
+  }
+  .admin-samples-tab-suffix {
+    display: none;
+  }
+  .admin-samples-preview-btn {
+    white-space: nowrap;
+  }
+}
+
 /* 미리보기 모달 */
 .admin-samples-preview-modal {
   max-width: 1000px;

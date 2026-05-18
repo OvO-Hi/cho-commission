@@ -38,9 +38,14 @@ import type {
 import SamplesPreviewModal from "./SamplesPreviewModal";
 import BlockCard from "./sample-blocks/BlockCard";
 
-const CATEGORIES: { id: CommissionCategory; label: string }[] = [
-  { id: "live2d", label: "Live2D 샘플" },
-  { id: "illust", label: "Illust 샘플" },
+// main + suffix 로 분리 — 모바일에선 suffix(" 샘플") 가 CSS 로 숨겨져 짧게 표시.
+const CATEGORIES: {
+  id: CommissionCategory;
+  main: string;
+  suffix: string;
+}[] = [
+  { id: "live2d", main: "Live2D", suffix: " 샘플" },
+  { id: "illust", main: "Illust", suffix: " 샘플" },
 ];
 
 const BLOCK_OPTIONS: { type: SampleBlockType; label: string }[] = [
@@ -278,7 +283,19 @@ export default function SamplesManager({
 
   return (
     <div className="admin-main-card">
-      <h1 className="admin-main-title">샘플 페이지 관리</h1>
+      {/* 제목 row — 모바일 한정으로 우측에 저장 인디케이터를 표시. 데스크탑에서는
+          CSS 로 인디케이터가 숨겨져 wrapper 가 h1 하나만 가진 단순 row. */}
+      <div className="admin-samples-title-row">
+        <h1 className="admin-main-title">샘플 페이지 관리</h1>
+        <div
+          className={`admin-samples-save-indicator admin-samples-save-${saveState} admin-samples-save-mobile-only`}
+          aria-live="polite"
+        >
+          {saveState === "saving" && "저장 중..."}
+          {saveState === "saved" && "✓ 저장됨"}
+          {saveState === "error" && "저장 실패"}
+        </div>
+      </div>
       <p className="admin-samples-sub">
         Live2D / Illust 샘플 페이지 콘텐츠를 관리할 수 있어요
       </p>
@@ -294,15 +311,17 @@ export default function SamplesManager({
               className={`admin-samples-tab${activeCategory === cat.id ? " admin-samples-tab-active" : ""}`}
               onClick={() => setActiveCategory(cat.id)}
             >
-              {cat.label}
+              {cat.main}
+              <span className="admin-samples-tab-suffix">{cat.suffix}</span>
             </button>
           ))}
         </div>
 
         <div className="admin-samples-toolbar-right">
-          {/* 자동 저장 인디케이터 — saving / saved / error 상태 표시. idle 일 때는 빈 공간 유지. */}
+          {/* 자동 저장 인디케이터 — 데스크탑에서만 toolbar 안에 표시.
+              모바일에서는 위 제목 row 의 모바일 전용 인디케이터가 같은 상태를 보여줌. */}
           <div
-            className={`admin-samples-save-indicator admin-samples-save-${saveState}`}
+            className={`admin-samples-save-indicator admin-samples-save-${saveState} admin-samples-save-desktop-only`}
             aria-live="polite"
           >
             {saveState === "saving" && "저장 중..."}
