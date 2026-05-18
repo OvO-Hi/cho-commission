@@ -165,12 +165,16 @@ export type Live2DType = {
 };
 
 // 위 카드의 본문 항목. label 은 nullable (없으면 사용자 페이지에서 "·" 로 자리만 유지).
+// 마이그레이션 008 로 translation_key + language 추가. type_id 는 같은 언어의 부모
+// live2d_types row 를 가리킨다 (KO 자식 → KO 부모, EN 자식 → EN 부모, ...).
 export type Live2DTypeItem = {
   id: string;
   type_id: string;
   label: string | null;
   value: string;
   order_num: number;
+  translation_key: string;
+  language: Language;
   created_at: string;
   updated_at: string;
 };

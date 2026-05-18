@@ -52,7 +52,7 @@ export default async function Live2DPage() {
     liveAddonsRigging,
     processSteps,
     types,
-    typeItemsRes,
+    typeItems,
   ] = await Promise.all([
     supabase
       .from("slots")
@@ -138,19 +138,26 @@ export default async function Live2DPage() {
       },
       locale,
     ),
-    // live2d_type_items 는 language 컬럼 없음 — type_id 로 부모(types)에 종속이라
-      // locale 별 분리 불필요. 그대로 fetch.
-    supabase
-      .from("live2d_type_items")
-      .select("*")
-      .order("order_num", { ascending: true }),
+    // live2d_type_items 는 008 에서 translation_key + language 추가. 부모와 같은
+    // language 로 자식이 따라온다 (KO 자식 → KO 부모, EN 자식 → EN 부모).
+    // 비어있으면 KO fallback — 위의 types fetch 도 같은 정책이라 매핑이 어긋나지 않음.
+    fetchListWithFallback(
+      async (lang) => {
+        const res = await supabase
+          .from("live2d_type_items")
+          .select("*")
+          .eq("language", lang)
+          .order("order_num", { ascending: true });
+        return res.data ?? [];
+      },
+      locale,
+    ),
   ]);
 
-  const allTypeItems = typeItemsRes.data ?? [];
   // 각 type 에 자식 items 를 붙여 한 객체로 만들어 렌더에 전달.
   const live2dTypes = types.map((t) => ({
     ...t,
-    items: allTypeItems.filter((item) => item.type_id === t.id),
+    items: typeItems.filter((item) => item.type_id === t.id),
   }));
 
   const slotState = (slotsRes.data ?? []).map((s) => s.is_filled);

@@ -26,7 +26,8 @@ export type TranslatedTable =
   | "notices"
   | "process_steps"
   | "price_items"
-  | "live2d_types";
+  | "live2d_types"
+  | "live2d_type_items";
 
 type AskArgs = {
   supabase: SupabaseClient<Database>;

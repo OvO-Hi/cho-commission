@@ -23,6 +23,7 @@ export default async function AdminProcessPage() {
     supabase
       .from("live2d_type_items")
       .select("*")
+      .eq("language", locale)
       .order("order_num", { ascending: true }),
     supabase
       .from("settings")

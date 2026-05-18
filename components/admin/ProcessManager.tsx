@@ -545,6 +545,7 @@ export default function ProcessManager({
         ? -1
         : Math.max(...siblings.map((i) => i.order_num));
     const supabase = createClient();
+    // 008 이후 language + translation_key 필수. 부모(types) 와 같은 locale 로 INSERT.
     const { data, error } = await supabase
       .from("live2d_type_items")
       .insert({
@@ -552,6 +553,8 @@ export default function ProcessManager({
         label: null,
         value: "",
         order_num: max + 1,
+        language: locale,
+        translation_key: crypto.randomUUID(),
       })
       .select()
       .single();
@@ -565,19 +568,32 @@ export default function ProcessManager({
     router.refresh();
   }
 
-  async function deleteTypeItem(id: string) {
-    saveNotifier.notifySaving();
+  async function deleteTypeItem(item: Live2DTypeItem) {
     const supabase = createClient();
-    const { error } = await supabase
-      .from("live2d_type_items")
-      .delete()
-      .eq("id", id);
+    const scope = await deleteScope.ask({
+      supabase,
+      table: "live2d_type_items",
+      translationKey: item.translation_key,
+      currentLocale: locale,
+      itemHint: item.value || item.label || undefined,
+    });
+    if (scope === "cancelled") return;
+
+    saveNotifier.notifySaving();
+    const query =
+      scope === "all"
+        ? supabase
+            .from("live2d_type_items")
+            .delete()
+            .eq("translation_key", item.translation_key)
+        : supabase.from("live2d_type_items").delete().eq("id", item.id);
+    const { error } = await query;
     if (error) {
       console.error("[admin/process] delete type item failed:", error.message);
       saveNotifier.notifyError();
       return;
     }
-    setTypeItems((prev) => prev.filter((i) => i.id !== id));
+    setTypeItems((prev) => prev.filter((i) => i.id !== item.id));
     saveNotifier.notifySaved();
     router.refresh();
   }
@@ -880,7 +896,7 @@ function Live2DTypesSection({
   onUpdateLocal: (id: string, patch: Partial<Live2DType>) => void;
   onDragEnd: (event: DragEndEvent) => void;
   onAddItem: (typeId: string) => void;
-  onDeleteItem: (id: string) => void;
+  onDeleteItem: (item: Live2DTypeItem) => void;
   onUpdateItemLocal: (id: string, patch: Partial<Live2DTypeItem>) => void;
   onItemsDragEnd: (typeId: string, event: DragEndEvent) => void;
 }) {
@@ -950,7 +966,7 @@ function Live2DTypeRow({
   onDelete: () => void;
   onUpdateLocal: (patch: Partial<Live2DType>) => void;
   onAddItem: () => void;
-  onDeleteItem: (id: string) => void;
+  onDeleteItem: (item: Live2DTypeItem) => void;
   onUpdateItemLocal: (id: string, patch: Partial<Live2DTypeItem>) => void;
   onItemsDragEnd: (event: DragEndEvent) => void;
 }) {
@@ -1033,7 +1049,7 @@ function Live2DTypeRow({
                 <Live2DTypeItemRow
                   key={item.id}
                   item={item}
-                  onDelete={() => onDeleteItem(item.id)}
+                  onDelete={() => onDeleteItem(item)}
                   onUpdateLocal={(patch) => onUpdateItemLocal(item.id, patch)}
                 />
               ))}
