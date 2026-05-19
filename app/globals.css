@@ -2525,6 +2525,21 @@ a {
   color: var(--text-main);
 }
 
+/* 어드민 매니저 제목 옆 작은 locale 표시 — 사이드바 토글로 바꾼 언어가 현재
+   탭임을 시각화. settings 외 다른 매니저에도 재사용 가능. */
+.admin-locale-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--soft-pink);
+  color: var(--text-main);
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+  letter-spacing: 0.04em;
+}
+
 .admin-main-empty {
   margin: 0;
   font-size: 0.92rem;

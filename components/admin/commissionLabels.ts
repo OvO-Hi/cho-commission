@@ -17,13 +17,20 @@ export const TYPE_LABELS: Record<CommissionCategory, string> = {
   illust: "Illust",
 };
 
-// "2026-05-01 14:30" 형식.
+// "2026-05-01 14:30" 형식. Asia/Seoul 고정 — d.getHours() 같은 로컬 TZ API 를
+// 쓰면 서버(UTC)와 클라이언트(KST)가 다른 문자열을 만들어 hydration mismatch
+// (React #418/#423) 가 발생하므로 Intl.DateTimeFormat 으로 명시 timezone 적용.
 export function formatCommissionDate(iso: string): string {
-  const d = new Date(iso);
-  const yy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${yy}-${mm}-${dd} ${hh}:${min}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (t: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
 }

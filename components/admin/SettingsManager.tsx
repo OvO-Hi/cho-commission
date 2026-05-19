@@ -5,7 +5,21 @@ import { useRouter } from "next/navigation";
 
 import { SETTING_KEYS } from "@/lib/admin/setting-keys";
 import { createClient } from "@/lib/supabase/client";
+import { translateText } from "@/lib/i18n/translate-client";
 import type { Language } from "@/types/database";
+
+// 어드민이 현재 어떤 locale 탭에 있는지 시각화. 다른 매니저(Notices/Process 등)
+// 와 톤 일관. sidebar 의 LanguageToggle 로 locale 전환 → 각 탭에서 그 언어의
+// 값이 입력/저장된다.
+const LOCALE_BADGE: Record<Language, string> = {
+  ko: "KO",
+  en: "EN",
+  jp: "JP",
+};
+
+// AI 번역 일괄 적용 시, 텍스트는 번역하고 핸들/이메일은 원본 복제.
+// snsX/snsEmail 은 언어와 무관한 식별자라 번역 대상 X.
+const TRANSLATABLE_KEYS: ReadonlySet<string> = new Set([SETTING_KEYS.intro]);
 
 type SettingsState = {
   intro: string;
@@ -76,36 +90,9 @@ export default function SettingsManager({
     ].filter((f) => f.value !== f.was);
 
     const results = await Promise.all(
-      fields.map(async ({ key, value }) => {
-        const { data: existing } = await supabase
-          .from("settings")
-          .select("id")
-          .eq("key", key)
-          .eq("language", locale)
-          .maybeSingle();
-
-        if (existing) {
-          return supabase
-            .from("settings")
-            .update({ value })
-            .eq("id", existing.id);
-        }
-
-        // translation_key: 같은 key 의 ko row 가 있으면 그 그룹을 따라가고,
-        // 없으면(=마이그레이션 전 시드 누락 케이스) 새 uuid.
-        const { data: koRow } = await supabase
-          .from("settings")
-          .select("translation_key")
-          .eq("key", key)
-          .eq("language", "ko")
-          .maybeSingle();
-
-        const translationKey = koRow?.translation_key ?? crypto.randomUUID();
-
-        return supabase
-          .from("settings")
-          .insert({ key, value, language: locale, translation_key: translationKey });
-      }),
+      fields.map(({ key, value }) =>
+        upsertSettingForLocale(supabase, key, value, locale),
+      ),
     );
 
     setSaving(false);
@@ -119,7 +106,72 @@ export default function SettingsManager({
 
     setSnapshot(state);
     showToast("저장되었어요");
+
+    // KO 탭 + 글로벌 AI 토글 ON 이면 변경된 텍스트 일괄 번역 다이얼로그.
+    // 다른 매니저(ProcessManager/NoticesManager 등) 와 동일한 패턴.
+    if (locale === "ko" && aiToggle && fields.length > 0) {
+      await offerBulkTranslation(fields);
+    }
+
     router.refresh();
+  }
+
+  // KO 변경분에 대해 EN/JP 번역 제안 → 확인 시 translateText 호출 후 per-locale upsert.
+  async function offerBulkTranslation(
+    fields: { key: string; value: string }[],
+  ) {
+    // intro 처럼 번역 의미 있는 필드만 카운트. snsX/snsEmail 은 번역 대상 아님.
+    const translatableFields = fields.filter((f) =>
+      TRANSLATABLE_KEYS.has(f.key),
+    );
+    if (translatableFields.length === 0) return;
+
+    const proceed = window.confirm(
+      `변경된 항목 ${translatableFields.length}개의 영어/일본어 번역본도 만드시겠어요?\n\n` +
+        `AI 번역 비용이 발생합니다.\n\n` +
+        `[확인] 예, 번역할게요\n[취소] 아니오, 한국어만`,
+    );
+    if (!proceed) return;
+
+    setSaving(true);
+    const supabase = createClient();
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const field of translatableFields) {
+      try {
+        const result = await translateText(
+          field.value,
+          ["en", "jp"],
+          "사이트 메인 페이지 하단 소개글",
+        );
+        for (const lang of ["en", "jp"] as const) {
+          const translated = result.translations[lang] ?? field.value;
+          const { error: e } = await upsertSettingForLocale(
+            supabase,
+            field.key,
+            translated,
+            lang,
+          );
+          if (e) throw new Error(e.message);
+        }
+        successCount++;
+      } catch (e) {
+        failCount++;
+        const msg = e instanceof Error ? e.message : "unknown error";
+        console.error(
+          `[admin/settings] translation failed for key ${field.key}:`,
+          msg,
+        );
+      }
+    }
+
+    setSaving(false);
+    if (failCount > 0) {
+      showToast(`${successCount}개 번역 성공, ${failCount}개 실패`);
+    } else {
+      showToast(`${successCount}개 번역 완료`);
+    }
   }
 
   function showToast(msg: string) {
@@ -170,9 +222,15 @@ export default function SettingsManager({
 
   return (
     <form className="admin-main-card" onSubmit={handleSubmit}>
-      <h1 className="admin-main-title">사이트 설정</h1>
+      <h1 className="admin-main-title">
+        사이트 설정{" "}
+        <span className="admin-locale-badge" aria-label={`현재 ${LOCALE_BADGE[locale]} 탭`}>
+          {LOCALE_BADGE[locale]}
+        </span>
+      </h1>
       <p className="admin-settings-sub">
-        메인 페이지에 표시되는 정보를 수정할 수 있어요
+        메인 페이지에 표시되는 정보를 수정할 수 있어요. 좌측 상단 언어 토글로
+        EN/JP 탭으로 전환해 각 언어의 값을 따로 입력할 수 있어요.
       </p>
 
       <div className="admin-settings-fields">
@@ -283,4 +341,40 @@ function Field({
       {children}
     </div>
   );
+}
+
+// settings 한 (key, locale) 쌍에 대해 upsert. row 가 있으면 update, 없으면 INSERT.
+// 새 row INSERT 시 같은 key 의 ko row 의 translation_key 를 재사용해 번역 그룹을 유지.
+async function upsertSettingForLocale(
+  supabase: ReturnType<typeof createClient>,
+  key: string,
+  value: string,
+  targetLocale: Language,
+) {
+  const { data: existing } = await supabase
+    .from("settings")
+    .select("id")
+    .eq("key", key)
+    .eq("language", targetLocale)
+    .maybeSingle();
+
+  if (existing) {
+    return supabase
+      .from("settings")
+      .update({ value })
+      .eq("id", existing.id);
+  }
+
+  const { data: koRow } = await supabase
+    .from("settings")
+    .select("translation_key")
+    .eq("key", key)
+    .eq("language", "ko")
+    .maybeSingle();
+
+  const translationKey = koRow?.translation_key ?? crypto.randomUUID();
+
+  return supabase
+    .from("settings")
+    .insert({ key, value, language: targetLocale, translation_key: translationKey });
 }
